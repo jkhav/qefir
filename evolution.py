@@ -5,7 +5,13 @@ import numpy
 import datetime
 
 class Fitness:
-    
+    """
+        Class representing fitness function that is passed into the evolution algorithm
+        The user should specify a fitness function that takes individual as a parameter
+        and returns a float value from interval [0, 1] where 1 is the worst fitness
+        
+        If the function is not specified, the default is used (TODO now only random returned number)
+    """
     def __init__(self, function=None):
         self.function = function if function is not None else self.default_fitness_function
         
@@ -17,16 +23,13 @@ class Fitness:
         return self.function(individual)
     
     def default_fitness_function(self, individual):
-        """
-        TODO
-        """
         return random.uniform(0, 1)
 
 
 
 
 class Logger:
-    def __init__(self, filename='evolution'):
+    def __init__(self, filename='logs/evolution'):
         self.filename = filename + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + '.log'
         self.file = open(self.filename, 'w')
         self.start_time = datetime.datetime.now()
@@ -59,18 +62,20 @@ class Gene:
         print(f"Gate: {self.gate}, Target: {self.target_qubit}, Controls: {self.control_qubits}, Parameter: {self.parameter}")
 
     def __str__(self):
-        return f"Gene(gate={self.gate}, target_qubit={self.target_qubit}, control_qubits={self.control_qubits}, parameter={self.parameter})"
+        return f"{self.gate}[{self.target_qubit}]"
         
 
 
 class Genome:
-    def __init__(self, mut_prob=0.7, gate_set=None, max_size=10, qubits=2):
-        self.genes = []
+    def __init__(self, mut_prob=0.7, gate_set=None, max_qubits=10, max_depth=100):
+        self.genes = [] # note this will be a grid representation of genes - gene is a gate
         self.fitness = 1.0
-        self.mutation_prob = mut_prob
+        self.mutation_prob = mut_prob # in CGP, mutation is 1.0
         self.gate_set = gate_set if gate_set is not None else ['h', 'cx', 'x', 'y', 'z', 's', 't']
-        self.max_size = max_size
-        self.qubits = qubits
+        self.max_depth = max_depth
+        self.max_qubits = max_qubits
+        self.curr_cols = 0
+        self.curr_rows = 0
     
     def generate_random_individual(self): 
         """
@@ -79,10 +84,18 @@ class Genome:
         genes are generated from the gate set specified for the genome
         and the number of qubits specified for the genome
         """
-        for _ in range(random.randint(1, self.max_size)):
-            gene = Gene()
-            gene.random(self.gate_set, self.qubits)
-            self.genes.append(gene)
+        qubits = random.randint(1, self.max_qubits)
+        columns = random.randint(1, self.max_depth)
+        self.curr_rows = qubits
+        self.curr_cols = columns
+        for _ in range(columns):
+            column = []
+            for _ in range(qubits):
+                gene = Gene()
+                gene.random(gate_set=self.gate_set, max_qubit=qubits)
+                column.append(gene)
+            self.genes.append(column)
+        self.fitness = 1.0
         return self
     
     def print_genome(self):
@@ -91,24 +104,82 @@ class Genome:
         """
         print("Genome:")
         for gene in self.genes:
-            gene.print_gene()
+            for row in gene:
+                print(f"Gene: {row.gate}, Target: {row.target_qubit}, Controls: {row.control_qubits}, Parameter: {row.parameter}")
         print(f"Fitness: {self.fitness}")
     
     def mutate(self):
-        """
-        TODO TODO
-        """
+        prob_add_qubit = 0.125
+        prob_add_col = 0.125
+        prob_change_gate = 0.75
+        # TODO add more mutations
+        
+        assert prob_add_qubit + prob_add_col + prob_change_gate == 1.0, "Mutation probabilities must sum to 1"
+        
+        random_val = random.uniform(0.0, 1.0)
+        if random_val < prob_add_qubit:
+            return self.mutate_add_qubit()
+        elif random_val < prob_add_qubit + prob_add_col:
+            return self.mutate_add_column()
+        else:
+            return self.mutate_change_gate()
+    
+    def mutate_add_qubit(self):
+        if self.curr_rows >= self.max_qubits:
+            return self
+        else:
+            for column in self.genes:
+                gene = Gene()
+                gene.random(gate_set=self.gate_set, max_qubit=self.curr_rows + 1)
+                column.append(gene)
+            self.curr_rows += 1
+        return self
+        
+    def mutate_add_column(self):
+        if self.curr_cols >= self.max_depth:
+            return self
+        else:
+            new_column = []
+            for _ in range(len(self.genes[0])):
+                gene = Gene()
+                gene.random(gate_set=self.gate_set, max_qubit=len(self.genes[0]))
+                new_column.append(gene)
+            self.genes.append(new_column)
+            self.curr_cols += 1
+        return self
+    
+    def mutate_change_gate(self):
+        column = random.choice(self.genes)
+        gate = random.choice(column)
+        gate.gate = random.choice(self.gate_set)
         return self
 
     def __str__(self):
         string = f"Genome(fitness={self.fitness}, genes=["
-        for gene in self.genes:
-            string += str(gene) + ", "
+        for column in self.genes:
+            for gene in column: 
+                string += str(gene) + ", "
         string += f"]"
         return string
     
     def to_cirq(self):
-        pass
+        circuit = cirq.Circuit()
+        for column in self.genes:
+            for gene in column:
+                if gene.gate == 'h':
+                    circuit.append(cirq.H(cirq.LineQubit(gene.target_qubit)))
+                elif gene.gate == 'x':
+                    circuit.append(cirq.X(cirq.LineQubit(gene.target_qubit)))
+                elif gene.gate == 'y':
+                    circuit.append(cirq.Y(cirq.LineQubit(gene.target_qubit)))
+                elif gene.gate == 'z':
+                    circuit.append(cirq.Z(cirq.LineQubit(gene.target_qubit)))
+                elif gene.gate == 's':
+                    circuit.append(cirq.S(cirq.LineQubit(gene.target_qubit)))
+                elif gene.gate == 't':
+                    circuit.append(cirq.T(cirq.LineQubit(gene.target_qubit)))
+        return circuit
+                
 
 class Population:
     
@@ -143,12 +214,12 @@ class Population:
     def select_fittest(self):
         return self.fittest
 
-    def generate_random_population(self, lambda_param=4, gate_set=None, max_size=10, qubits=2):
+    def generate_random_population(self, lambda_param=4, gate_set=None, max_depth=100, max_qubits=10, qubits=2):
         """
         Generate a random population of genomes
         """
         for _ in range(lambda_param + 1):
-            individual = Genome(gate_set=gate_set, max_size=max_size, qubits=qubits).generate_random_individual()
+            individual = Genome(gate_set=gate_set, max_qubits=max_qubits, max_depth=max_depth).generate_random_individual()
             self.add_individual(individual)
         
         return self
@@ -208,8 +279,8 @@ class EvolutionManager:
                     max_individual_size=100,
                     fitness_function=None,
                     max_cols=1000, #nc, nr, l - general CGP parameters
-                    max_rows=1000,
-                    level_backs=1
+                    max_rows=10, # rows == qubits 
+                    level_backs=1 # should be redundant
                    ):
         """
         evolve quantum circuit using CGP
@@ -225,9 +296,9 @@ class EvolutionManager:
         self.logger.log(type='INFO', message=f"Starting evolution with lambda_param={lambda_param}")
     
         self.population = Population(self.fitness_function).generate_random_population(lambda_param=lambda_param, 
-                                                                  gate_set=gate_set, 
-                                                                  max_size=max_individual_size, 
-                                                                  qubits=max_qubits)
+                                                                    gate_set=gate_set, 
+                                                                    max_depth=max_cols,
+                                                                    max_qubits=max_rows)
         self.logger.log(type='INFO', message=f"Initial population generated with {len(self.population.individuals)} individuals")
         
         # evaluate the population's fitness
@@ -241,7 +312,10 @@ class EvolutionManager:
             self.increment_population()
             
         self.logger.log(type='INFO', message=f"Evolution finished after {self.population_count()} populations")    
-    
+        self.logger.close()
+        
+        best_individual = self.population.select_fittest()
+        return best_individual.to_cirq()
     
 
     def evolve():
@@ -261,14 +335,26 @@ if __name__ == "__main__":
     ])
 
     def tmp_fitness_function(individual):
+        #circuit = individual.to_cirq()
+        #circuit2 = cirq.Circuit()
+        #circuit2.append([
+        #    cirq.H(cirq.LineQubit(0)),
+        #    cirq.CNOT(cirq.LineQubit(1), cirq.LineQubit(0)),
+        #    cirq.CNOT(cirq.LineQubit(2), cirq.LineQubit(1)),
+        #    cirq.H(cirq.LineQubit(2))
+        #])
+        
         return random.uniform(0, 1)
     
     fitness = Fitness(function=tmp_fitness_function)
-    
     evolution_manager = EvolutionManager()
-    evolution_manager.evolve_cgp(lambda_param=4, 
-                                 gate_set=['h', 'cx', 'x', 'y', 'z', 's', 't'],
-                                 max_populations=10, 
-                                 max_individual_size=100, 
-                                 fitness_function=fitness, 
-                                 max_qubits=len(circuit2.all_qubits()))
+    circuit = evolution_manager.evolve_cgp(lambda_param=4, 
+                                            gate_set=['h', 'cx', 'x', 'y', 'z', 's', 't'],
+                                            max_populations=10, 
+                                            max_individual_size=100, 
+                                            max_cols=10,
+                                            max_rows=len(circuit2.all_qubits()),
+                                            fitness_function=fitness, 
+                                            max_qubits=len(circuit2.all_qubits()))
+    print("Evolved Circuit:")
+    print(circuit)
