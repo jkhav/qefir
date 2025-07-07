@@ -201,12 +201,16 @@ class EvolutionManager:
         
     
     def evolve_cgp(self, 
-                   lambda_param=4, 
-                   gate_set=['h', 'cx', 'x', 'y', 'z', 's', 't'],
-                   max_populations=1000, 
-                   max_qubits=2, 
-                   max_individual_size=100,
-                   fitness_function=None):
+                    lambda_param=4, 
+                    gate_set=['h', 'cx', 'x', 'y', 'z', 's', 't'],
+                    max_populations=1000, 
+                    max_qubits=2, 
+                    max_individual_size=100,
+                    fitness_function=None,
+                    max_cols=1000, #nc, nr, l - general CGP parameters
+                    max_rows=1000,
+                    level_backs=1
+                   ):
         """
         evolve quantum circuit using CGP
         using 1 + lambda strategy
@@ -248,12 +252,14 @@ class EvolutionManager:
     
 
 if __name__ == "__main__":
+    circuit2 = cirq.Circuit()
+    circuit2.append([
+        cirq.H(cirq.LineQubit(0)),
+        cirq.CNOT(cirq.LineQubit(1), cirq.LineQubit(0)),
+        cirq.CNOT(cirq.LineQubit(2), cirq.LineQubit(1)),
+        cirq.H(cirq.LineQubit(2))
+    ])
 
-    circuit = cirq.Circuit(
-        cirq.X(cirq.GridQubit(0, 0))**0.5,
-        cirq.measure(cirq.GridQubit(0, 0), key='m')
-    )
-    
     def tmp_fitness_function(individual):
         return random.uniform(0, 1)
     
@@ -265,4 +271,4 @@ if __name__ == "__main__":
                                  max_populations=10, 
                                  max_individual_size=100, 
                                  fitness_function=fitness, 
-                                 max_qubits=len(circuit.all_qubits()))
+                                 max_qubits=len(circuit2.all_qubits()))
