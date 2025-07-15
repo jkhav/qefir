@@ -1,78 +1,59 @@
 import sys
 import math
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, execute
-from qiskit_sliqsim_provider import SliQSimProvider
+import qiskit
 import evolution as evo
+import numpy as np
+import subprocess
 
 if __name__ == "__main__":
-    def tmp_fitness_function(individual):   
-        # allowed error 
-        allowed_err = 0.001
+    def sliqsim_fitness():
+        def extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, qubits):
+            amp0 = 0j
+            amp1 = 0j
+            for i in range(len(statevector)):
+                bits = format(i, f'0{qubits}b')
+                if all(bits[-(j+1)] == '0' for j in range(qubits) if j != non_ancilla_idx):
+                    if bits[-(non_ancilla_idx+1)] == '0':
+                        amp0 += statevector[i]
+                    else:
+                        amp1 += statevector[i]
+            norm = np.sqrt(abs(amp0)**2 + abs(amp1)**2)
+            return np.array([amp0, amp1]) / norm  
+               
         
-        def bhattaharyya_dst(p, q):
-            keys = set(p) | set(q)
-            #print("Calculating Bhattacharyya distance for:")
-            #print(f"p: {p}")
-            #print(f"q: {q}")
-            bc = 0.0
-            for k in keys:
-                bc += math.sqrt(p.get(k, 0) * q.get(k, 0))
-            if bc == 0:
-                return 1.0
-            else:
-                d = -math.log(bc)
-                return d
+        filename = 'final_circuit.qasm'
+        # simulate the circuit with sliqsim
+        basis_state = '0' * 2
+        res = subprocess.run(['./SliQSim', '--sim_qasm', filename, '--type', '1', '--basis_state', basis_state], capture_output=True)
+        res_str = res.stdout.decode('utf-8')
+        print("SliQSim output:")
+        print(res_str)
+        # parse the output {"statevector": [0, 0, 0, 1] }
+        statevector = []
+        start = res_str.find('[')
+        end = res_str.find(']')
+        vector_str = res_str[start + 1:end]
+        entries = [x.strip() for x in vector_str.split(',')]
+        statevector = [complex(e.replace('i', 'j')) for e in entries]
+        # project measurement of all ancilla qubits to be 0
+        non_ancilla_idx = 2 - 1
+        statevector = extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, 2)
+        print(f"Statevector after projection: {statevector}")
+        # calculate the distance from the expected state
+        # approximate (I + i*sqrt(2)*Z) / sqrt(3) for non_ancilla qubit
+        expected_state = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
         
-        def normalize(dist):
-            total = sum(dist.values())
-            return {k: v / total for k, v in dist.items()}
-                 
-        qr = QuantumRegister(5)
-        cr = ClassicalRegister(5)    
-        qc = QuantumCircuit(qr, cr)
-        qc.h(0)
-        qc.t(1)
-        qc.x(2)
-        qc.y(3)
-        qc.z(4)
-        qc.measure(qr, cr)
-        
-        qc2 = individual.to_qiskit_circuit()
-        provider = SliQSimProvider()
-        backend = provider.get_backend('sampling')
-        job = execute(qc, backend=backend, shots=2048, optimization_level=0)
-        job2 = execute(qc2, backend=backend, shots=2048, optimization_level=0)
-        result = job.result()
-        result2 = job2.result()
-        p = normalize(result.get_counts(qc))
-        q = normalize(result2.get_counts(qc2))
-        dist = bhattaharyya_dst(p, q)
-        
-        #if dist < allowed_err:
-        #    dist = 0.0
-        
+        # calculate the distance
+        dist = np.linalg.norm(statevector - expected_state)
+        # normalize the distance to [0, 1]
+        if dist > 1.0:
+            dist = 1.0
+        elif dist < 0.0:
+            dist = 0.0
+        print(f"Distance: {dist}")
+            
+                        
         return dist
     
-    
-    hadamard = evo.Gate(name='h', qubits=1, parameter=0.0)
-    x = evo.Gate(name='x', qubits=1, parameter=0.0)
-    y = evo.Gate(name='y', qubits=1, parameter=0.0)
-    z = evo.Gate(name='z', qubits=1, parameter=0.0)
-    s = evo.Gate(name='s', qubits=1, parameter=0.0)
-    t = evo.Gate(name='t', qubits=1, parameter=0.0)
-    cnot = evo.Gate(name='cx', qubits=2, parameter=0.0)
-    gate_set = [hadamard, x, y, z, s, t, cnot]
-    gate_set2 = [cnot]
-    
-    fitness = evo.Fitness(function=tmp_fitness_function)
-    evolution_manager = evo.EvolutionManager()
-    circuit = evolution_manager.evolve_cgp(lambda_param=4, 
-                                            gate_set=gate_set2,
-                                            max_populations=1000, 
-                                            max_cols=10,
-                                            max_rows=5,
-                                            level_backs=1,
-                                            fitness_function=fitness)
-    
-    fig = circuit.draw(output='mpl')
-    fig.savefig('evolved_circuit.png')
+print(f"Running SliQSim fitness evaluation...")
+print(f"Fitness value: {sliqsim_fitness()}")

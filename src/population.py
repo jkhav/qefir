@@ -1,6 +1,8 @@
 from gene import Gene
 from genome import Genome
 from fitness import Fitness
+import datetime
+import time
 
 class Population:
     def __init__(self, fitness_function=Fitness()):
@@ -22,12 +24,18 @@ class Population:
         for individual in self.individuals:
             individual.print_genome()
 
-    def evaluate_fitness(self):
+    def evaluate_fitness(self, logger=None):
         """
         Evaluate fitness function for all individuals in the population
         """
         for individual in self.individuals:
+            time_start = time.time()
             individual.fitness = self.fitness_function.evaluate(individual)
+            time_end = time.time()
+            if logger is not None:
+                logger.log_fitness_call(time_end - time_start)
+            
+            
             if self.fittest == None:
                 self.fittest = individual
             

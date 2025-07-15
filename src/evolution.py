@@ -38,10 +38,10 @@ class EvolutionManager:
         self.logger.log(type='DEBUG', message=f"Fittest individual: {fittest}")
         for _ in range(self.lambda_param):
             individual = copy.deepcopy(fittest)
-            individual.mutate()
+            individual.mutate(self.logger)
             new_population.add_individual(individual)
         
-        new_population.evaluate_fitness()
+        new_population.evaluate_fitness(self.logger)
         for individual in new_population.individuals:
             self.logger.log(type='DEBUG', message=f"Mutated individual: {individual}")
         
@@ -94,6 +94,7 @@ class EvolutionManager:
         best_individual = self.population.select_fittest()
         self.logger.log(type='INFO', message=f"Best individual found with fitness: {best_individual.fitness}")
         self.logger.log(type='DEBUG', message=f"Best individual: {best_individual}")
-        
+        self.logger.print_stats()
+        self.logger.print_final_circuit(best_individual)
         self.logger.close()
-        return best_individual.to_qiskit_circuit()
+        return best_individual
