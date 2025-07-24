@@ -11,6 +11,7 @@ class Gene:
         self.part = -1 # if part == -1, its single-qubit, otherwise it tells which part of the multi-qubit gate it is
         self.skips = 0
         self.active = True
+        self.use = True
         
     def random(self, gate_set=None, max_qubit : int = 2, parameter_range = (-numpy.pi, numpy.pi), max_skips : int = 0) -> Gate:
         gate = random.choice(gate_set)
@@ -25,7 +26,7 @@ class Gene:
         print(f"Gate: {self.gate}, Target: {self.target_qubit}")
 
     def __str__(self):
-        return f"{self.gate} {self.part} {self.multiqubit_idx}"
+        return f"{self.gate} {self.part} {self.multiqubit_idx} {self.skips} {self.active}"
 
     def copy(self):
         return copy.deepcopy(self)

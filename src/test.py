@@ -4,6 +4,8 @@ import qiskit
 import evolution as evo
 import numpy as np
 import subprocess
+import pennylane as qml
+
 
 if __name__ == "__main__":
     def sliqsim_fitness():
@@ -20,8 +22,19 @@ if __name__ == "__main__":
             norm = np.sqrt(abs(amp0)**2 + abs(amp1)**2)
             return np.array([amp0, amp1]) / norm  
                
+               
+        def fidelity(vec1, vec2):
+            if vec1[0] == 1.0 and vec1[1] == 0.0:
+                return 1.0
+            return np.abs(1.0 - qml.math.fidelity_statevector(vec1, vec2))
         
-        filename = 'final_circuit.qasm'
+        def dist(vec1, vec2):
+            return np.linalg.norm(vec1 - vec2)
+
+        def dist2(vec1, vec2):
+            return 1.0 - np.pow(np.abs(np.vdot(vec1, vec2)), 2)
+
+        filename = 'tmp2.qasm'
         # simulate the circuit with sliqsim
         basis_state = '0' * 2
         res = subprocess.run(['./SliQSim', '--sim_qasm', filename, '--type', '1', '--basis_state', basis_state], capture_output=True)
@@ -41,10 +54,12 @@ if __name__ == "__main__":
         print(f"Statevector after projection: {statevector}")
         # calculate the distance from the expected state
         # approximate (I + i*sqrt(2)*Z) / sqrt(3) for non_ancilla qubit
-        expected_state = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
-        
+        expected_state = np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1])
+        #expected_state = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
+
         # calculate the distance
-        dist = np.linalg.norm(statevector - expected_state)
+        dist = dist2(statevector, expected_state)
+        #dist = np.linalg.norm(statevector - expected_state)
         # normalize the distance to [0, 1]
         if dist > 1.0:
             dist = 1.0

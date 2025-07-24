@@ -30,11 +30,18 @@ class Population:
         """
         for individual in self.individuals:
             time_start = time.time()
+            
+            # mutation did not change anything 
+            # or skip evaluation of whats already evaluated
+            if individual.actives_mutated == 0 or individual == self.fittest:
+                if individual != self.fittest:
+                    logger.log(type="DEBUG", message=f"Skipped fitness evaluation for individual {individual}")
+                continue
+            
             individual.fitness = self.fitness_function.evaluate(individual)
             time_end = time.time()
             if logger is not None:
                 logger.log_fitness_call(time_end - time_start)
-            
             
             if self.fittest == None:
                 self.fittest = individual

@@ -9,7 +9,7 @@ class EvolutionManager:
     def __init__(self):
         self.logger = Logger()
     
-    def initialize(self, lambda_param, gate_set, max_populations, fitness_function, qubits=2):
+    def initialize(self, lambda_param, gate_set, max_populations, fitness_function, qubits, active_mut_rate, inactive_mut_rate):
         """
         Initialize the evolution manager with parameters for CGP
         """
@@ -21,6 +21,8 @@ class EvolutionManager:
         self.population = Population(fitness_function=fitness_function) if fitness_function is not None else Population(fitness_function=Fitness())
         self.fittest = None
         self.curr_population = 0
+        self.active_mut_rate = active_mut_rate
+        self.inactive_mut_rate = inactive_mut_rate
     
     def population_count(self):
         return self.curr_population
@@ -38,7 +40,7 @@ class EvolutionManager:
         self.logger.log(type='DEBUG', message=f"Fittest individual: {fittest}")
         for _ in range(self.lambda_param):
             individual = copy.deepcopy(fittest)
-            individual.mutate(self.logger)
+            individual.mutate(logger=self.logger, active_mut_rate=self.active_mut_rate, inactive_mut_rate=self.inactive_mut_rate)
             new_population.add_individual(individual)
         
         new_population.evaluate_fitness(self.logger)
@@ -60,7 +62,9 @@ class EvolutionManager:
                     fitness_function : Fitness = None,
                     max_cols : int = 100, #nc, nr, l - general CGP parameters
                     max_rows : int = 10, # rows == qubits 
-                    level_backs : int = 1 # should be redundant
+                    level_backs : int = 1, # should be redundant
+                    active_mut_rate : float = 0.05, # mutation rate of active nodes
+                    inactive_mut_rate : float = 0.5 # mutation rate of inactive nodes
                    ):
         """
         evolve quantum circuit using CGP
@@ -70,7 +74,10 @@ class EvolutionManager:
                         gate_set=gate_set, 
                         max_populations=max_populations, 
                         fitness_function=fitness_function,
-                        qubits=max_rows)
+                        qubits=max_rows,
+                        active_mut_rate=active_mut_rate,
+                        inactive_mut_rate=inactive_mut_rate
+                        )
     
         self.logger.log(type='INFO', message=f"Starting evolution with lambda_param={lambda_param}")
     

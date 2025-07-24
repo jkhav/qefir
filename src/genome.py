@@ -14,6 +14,7 @@ class Genome:
         self.cols = cols
         self.rows = rows
         self.col_to_num_of_multi_qubits = {} # mapping column index to number of multi-qubit gates in that column
+        self.actives_mutated = -1
         for i in range(cols):
             self.col_to_num_of_multi_qubits[i] = 1
             
@@ -99,11 +100,16 @@ class Genome:
             print(f"Gene: {gene.gate}, Target: {gene.target_qubit}")
         print(f"Fitness: {self.fitness}")
     
-    def mutate(self, logger=None):
-        prob_change_gate = 1
-        
-        assert prob_change_gate == 1.0, "Mutation probabilities must sum to 1"        
-        return self.mutate_change_gate(logger)
+    def mutate(self, logger=None, active_mut_rate=0.05, inactive_mut_rate=0.5):
+        self.actives_mutated = 0
+        for gene in self.genes:
+            prob = random.uniform(0, 1)
+            if gene.active and prob <= active_mut_rate:
+                self.mutate_change_gate(logger=logger, gene_to_mutate=gene)
+                self.actives_mutated += 1
+            elif not gene.active and prob <= inactive_mut_rate:
+                self.mutate_change_gate(logger=logger, gene_to_mutate=gene)
+        return self
 
     def s_to_s_mutation(self, gene_to_mutate_idx, gate_to_mutate_to, gene_to_mutate_to, logger=None):
         if logger is not None:
@@ -123,6 +129,7 @@ class Genome:
             # generate new random gene for each part
             gene = Gene()
             chosen_gate = gene.random(gate_set=self.gate_set, max_qubit=self.rows)
+            gene.active = True
             if chosen_gate.name == self.genes[part].gate and logger is not None:
                 logger.log_useless_mutation()
             
@@ -160,6 +167,7 @@ class Genome:
             new_gene.part = i + 1
             new_gene.multiqubit_idx = multi_qubit_idx
             new_gene.skips = random.randint(0, self.cols - (gene_to_mutate_idx // self.rows) - 1)
+            new_gene.active = True
             #new_gene.skips = random.randint(0, 1)
             
             gene_to_mutate = self.genes[index + (gene_to_mutate_idx // self.rows) * self.rows]
@@ -176,6 +184,7 @@ class Genome:
             # generate new random gene for each part
             gene = Gene()
             chosen_gate = gene.random(gate_set=self.gate_set, max_qubit=self.rows)
+            gene.active = True
             gene_to_mutate = self.genes[part]
             gene_to_mutate_multiqubit = gene_to_mutate.part != -1
             if chosen_gate.name == gene_to_mutate.gate and logger is not None:
@@ -194,7 +203,7 @@ class Genome:
                         
         return self
         
-    def mutate_change_gate(self, logger=None):
+    def mutate_change_gate(self, gene_to_mutate, logger=None):
         time_start = time.time()
         # if the mutation is changing single-qubit gate, then change the gate of a random gate
         # if the new gate is multi-qubit, generate all its parts on other random rows
@@ -202,8 +211,7 @@ class Genome:
         
         # if the mutation is changing multi-qubit gate, change all its parts
         #print(f"{self}")
-        gene_to_mutate_idx = random.randint(0, len(self.genes) - 1)
-        gene_to_mutate = self.genes[gene_to_mutate_idx]
+        gene_to_mutate_idx = self.genes.index(gene_to_mutate)
         gate_to_mutate_to = random.choice(self.gate_set)
         mutating_multi_qubit = gene_to_mutate.part != -1
         mutating_to_multi_qubit = gate_to_mutate_to.multi_qubit
@@ -212,6 +220,7 @@ class Genome:
         #gene_to_mutate_to.skips = random.randint(0, 1)
         gene_to_mutate_to.multiqubit_idx = 0
         gene_to_mutate_to.part = -1
+        gene_to_mutate_to.active = True
         if gate_to_mutate_to.name == gene_to_mutate.gate and logger is not None:
             logger.log_useless_mutation()
         
@@ -266,12 +275,12 @@ class Genome:
     def nodes_to_process(self):
         nodes_to_process = self.genes
         for gene in nodes_to_process:
-            print(f"Node: {gene.gate}, Part: {gene.part}, Multiqubit Index: {gene.multiqubit_idx}, Skips: {gene.skips}")
+            gene.active = True
         for i, node in enumerate(nodes_to_process):
             if node.gate != 'SKIP':
                 continue
             else:
-                nodes_to_process[i].active = False
+                #nodes_to_process[i].active = False
                 for j in range(node.skips):
                     index = i + (j+1) * self.rows
                     if index >= len(nodes_to_process):
@@ -291,10 +300,6 @@ class Genome:
                     else:
                         # its a single-qubit gate
                         node_to_remove.active = False
-                    
-        for i, node in enumerate(nodes_to_process):
-            if node.active == True:
-                print(f"Node {i} is active: {node}")
         return nodes_to_process
 
     def to_qiskit_circuit(self):
@@ -315,7 +320,7 @@ class Genome:
                 continue
             qubit = i % self.rows
             column = i // self.rows
-            if node.part == -1:
+            if node.part == -1 or node.gate == 'SKIP':
                 # adding single-qubit gate
                 getattr(qc, node.gate)(qubit)
                 node.active = False
@@ -335,24 +340,20 @@ class Genome:
                 getattr(qc, node.gate)(*parts)
         # Add measurement to all qubits
         # qc.measure(qr, cr)
-        
-        for node in self.genes:
-            node.active = True
-        
         return qc
 
     def to_qasm(self) -> str:
         active_nodes = self.nodes_to_process()
         qasm_str = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[{}];\ncreg c[{}];\n".format(self.rows, self.rows)
         for i, node in enumerate(active_nodes):
-            if node.active == False:
+            if node.active == False or node.gate == 'SKIP':
                 continue
             qubit = i % self.rows
             column = i // self.rows
             if node.part == -1:
                 # adding single-qubit gate
                 qasm_str += "{} q[{}];\n".format(node.gate, qubit)
-                node.active = False
+                node.use = False
             else:
                 # adding multi-qubit gate
                 start = column * self.rows
@@ -360,14 +361,13 @@ class Genome:
                 parts = []
                 for k in range(start, end):
                     if active_nodes[k].part != -1 and active_nodes[k].multiqubit_idx == node.multiqubit_idx:
-                        active_nodes[k].active = False
+                        active_nodes[k].use = False
                         qubit = k % self.rows
                         index = active_nodes[k].part
                         if index >= len(parts):
                             parts.extend([0] * (index - len(parts) + 1))
                         parts[active_nodes[k].part] = qubit
                 qasm_str += "{} {};\n".format(node.gate, ', '.join(f"q[{i}]" for i in parts))
-                
-        for node in self.genes:
-            node.active = True
+        for node in active_nodes:
+            node.use = True
         return qasm_str
