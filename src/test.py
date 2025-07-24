@@ -34,7 +34,7 @@ if __name__ == "__main__":
         def dist2(vec1, vec2):
             return 1.0 - np.pow(np.abs(np.vdot(vec1, vec2)), 2)
 
-        filename = 'tmp2.qasm'
+        filename = 'final_circuit.qasm'
         # simulate the circuit with sliqsim
         basis_state = '0' * 2
         res = subprocess.run(['./SliQSim', '--sim_qasm', filename, '--type', '1', '--basis_state', basis_state], capture_output=True)
@@ -54,11 +54,11 @@ if __name__ == "__main__":
         print(f"Statevector after projection: {statevector}")
         # calculate the distance from the expected state
         # approximate (I + i*sqrt(2)*Z) / sqrt(3) for non_ancilla qubit
-        expected_state = np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1])
-        #expected_state = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
+        #expected_state = np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1])
+        expected_state = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
 
         # calculate the distance
-        dist = dist2(statevector, expected_state)
+        dist = dist(statevector, expected_state)
         #dist = np.linalg.norm(statevector - expected_state)
         # normalize the distance to [0, 1]
         if dist > 1.0:

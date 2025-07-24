@@ -20,7 +20,6 @@ class Fitness:
         else:
             if name == 'default_fitness_function':
                 self.function = self.default_fitness_function
-            # TODO more fitness functions
                 
     def evaluate(self, individual : Genome) -> float:
         """

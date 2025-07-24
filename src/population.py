@@ -33,12 +33,14 @@ class Population:
             
             # mutation did not change anything 
             # or skip evaluation of whats already evaluated
-            if individual.actives_mutated == 0 or individual == self.fittest:
+            if not individual.first_evaluation and (individual.actives_mutated == 0 or individual == self.fittest):
+                
                 if individual != self.fittest:
                     logger.log(type="DEBUG", message=f"Skipped fitness evaluation for individual {individual}")
                 continue
-            
+            individual.first_evaluation = False
             individual.fitness = self.fitness_function.evaluate(individual)
+            logger.log(type="DEBUG", message=f"Evaluated fitness for individual {individual} with fitness {individual.fitness}")
             time_end = time.time()
             if logger is not None:
                 logger.log_fitness_call(time_end - time_start)
@@ -48,16 +50,16 @@ class Population:
             
             if individual.fitness <= self.fittest.fitness:
                 self.fittest = individual
-
+                
     def select_fittest(self):
         return self.fittest
 
-    def generate_random_population(self, lambda_param=4, gate_set=None, gates=None, max_depth=100, max_qubits=10):
+    def generate_random_population(self, gate_set=None, max_operations=100, max_qubits=10, max_qubits_needed=1, population_size=100):
         """
         Generate a random population of genomes
         """
-        for _ in range(lambda_param + 1):
-            individual = Genome(gate_set=gate_set, rows=max_qubits, cols=max_depth).generate_random_individual()
+        for _ in range(population_size):
+            individual = Genome(gate_set=gate_set, qubits=max_qubits, operations=max_operations, max_qubits_needed=max_qubits_needed).generate_random_individual()
             print(f"Generated individual: {individual}")
             self.add_individual(individual)
         
