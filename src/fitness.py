@@ -7,7 +7,7 @@ class Fitness:
     The user should specify a fitness function that takes individual as a parameter
     and returns a float value from interval [0, 1] where 1 is the worst fitness    
     """
-    def __init__(self, function = None, name : str = 'default_fitness_function'):
+    def __init__(self, function = None, name : str = 'default_fitness_function') -> None:
         if function is None and name == 'default_fitness_function':
             self.function = self.default_fitness_function
             return

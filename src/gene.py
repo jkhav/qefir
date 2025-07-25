@@ -5,8 +5,8 @@ from gate import Gate
 import copy
 
 class Gene:
-    def __init__(self):
-        self.gate = 'empty'
+    def __init__(self) -> None:
+        self.gate = ''
         self.parts = [] # List[int] qubit indices, first is target, rest are controls, size is fix by max_qubits_needed
         self.skips = 0
         self.active = True
@@ -18,11 +18,11 @@ class Gene:
         self.parts = random.sample(range(max_qubit), max_qubits_needed)
         return gate
 
-    def print_gene(self):
+    def print_gene(self) -> None:
         print(f"Gate: {self.gate}, Parts: {self.parts}")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.gate} {self.parts} {self.skips} {self.active}"
 
-    def copy(self):
+    def copy(self) -> "Gene":
         return copy.deepcopy(self)

@@ -27,56 +27,75 @@ if __name__ == "__main__":
             inner_product = np.vdot(vec1, vec2)
             return 1.0 - np.pow(np.abs(inner_product), 2)
 
+        def euclidean(vec1, vec2):
+            return np.linalg.norm(vec1 - vec2) / np.sqrt(2)
+
+        def get_all_basis_states(qubits):
+            # for 2 qubits, generate strings '00', '01', '10', '11'
+            states = []
+            for i in range(2**qubits):
+                states.append(format(i, f'0{qubits}b'))
+            return states
         
+        def parse_sliqsim_output(output : str):
+            # parse the output {"statevector": [0, 0, 0, 1] }
+            statevector = []
+            start = res_str.find('[')
+            end = res_str.find(']')
+            vector_str = res_str[start + 1:end]
+            entries = [x.strip() for x in vector_str.split(',')]
+            statevector = [complex(e.replace('i', 'j')) for e in entries]
+            return np.array(statevector)
+            
         # generate qasm file
         qc = individual.to_qasm()
         filename = 'tmp_circuit.qasm'
         with open(filename, 'w') as f:
             f.write(qc)
-        # simulate the circuit with sliqsim
-        basis_state = '0' * individual.qubits 
-        res = subprocess.run(['./SliQSim', '--sim_qasm', filename, '--type', '1', '--basis_state', basis_state], capture_output=True)
-        res_str = res.stdout.decode('utf-8')
-        print("SliQSim output:")
-        print(res_str)
-        # parse the output {"statevector": [0, 0, 0, 1] }
-        statevector = []
-        start = res_str.find('[')
-        end = res_str.find(']')
-        vector_str = res_str[start + 1:end]
-        entries = [x.strip() for x in vector_str.split(',')]
-        statevector = [complex(e.replace('i', 'j')) for e in entries]
         
         # project measurement of all ancilla qubits to be 0
-        non_ancilla_idx = individual.qubits - 1
-        statevector = extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, individual.qubits)
-        
-        
-        
         # calculate the distance from the expected state
         # approximate (I + i*sqrt(2)*X) / sqrt(3) for non_ancilla qubit
-        expected_state = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
-        
+        #expected_state = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
         # (2X + sqrt(2)*Y + Z) / sqrt(7)
         #expected_state = np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1])
-        
         # (5I + 2iZ)/sqrt(29)
         #expected_state = np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1])
         
-        
-        # calculate the distance
-        dist = fidelity(statevector, expected_state)
-        # normalize the distance to [0, 1]
-        if dist > 1.0:
-            dist = 1.0
-        elif dist < 0.0:
-            dist = 0.0
-        print(f"Distance: {dist}")
+        non_ancilla_idx = individual.qubits - 1        
+        fidelities = []
+        basis_states = get_all_basis_states(individual.qubits)
+        for state in basis_states:
+            expected_state = np.array([1, 0]) * 1 + np.array([0, 1]) * 1
+            if state[non_ancilla_idx] == '1':
+                expected_state = np.array([1, 0]) * 0 + np.array([0, 1]) * (5 + 2j)/np.sqrt(29)
+                #expected_state = np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7)
+            else:
+                expected_state = np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1])
+                #expected_state = np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1])
+
+            res = subprocess.run(['./SliQSim', '--sim_qasm', filename, '--type', '1', '--basis_state', state], capture_output=True)
+            res_str = res.stdout.decode('utf-8')
+            print("SliQSim output:")
+            print(res_str)
+            statevector = parse_sliqsim_output(res_str)
+            statevector = extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, individual.qubits)
+            #dist = fidelity(statevector, expected_state)
+            dist = euclidean(statevector, expected_state)
+            if dist > 1.0:
+                dist = 1.0
+            elif dist < 0.0:
+                dist = 0.0
+            print(f"Distance: {dist}")
+            fidelities.append(dist)
             
-                        
-        return dist
-    
-    
+        # calculate the average fidelity
+        avg_fidelity = sum(fidelities) / len(fidelities)
+        print(f"Average fidelity: {avg_fidelity}")
+
+        return avg_fidelity
+
+
     hadamard = evo.Gate(name='h', qubits=1, parameter=0.0)
     s = evo.Gate(name='s', qubits=1, parameter=0.0)
     t = evo.Gate(name='t', qubits=1, parameter=0.0)

@@ -7,7 +7,9 @@ class Crossover:
         return parent1
     
 class OnePointCrossover(Crossover):
-    def crossover(self, parent1: Genome, parent2: Genome) -> Genome:
+    
+    @staticmethod
+    def crossover(parent1: Genome, parent2: Genome) -> Genome:
         crossover_point = random.randint(0, len(parent1.genes) - 1)
         
         # Create a new genome by combining genes from both parents

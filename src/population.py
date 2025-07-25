@@ -3,20 +3,23 @@ from genome import Genome
 from fitness import Fitness
 import datetime
 import time
+from logger import Logger
+from typing import List
+from gate import Gate
 
 class Population:
-    def __init__(self, fitness_function=Fitness()):
+    def __init__(self, fitness_function=Fitness()) -> None:
         self.individuals = [] # genomes in the population
         self.fittest = None
         self.fitness_function = fitness_function
-        
-    def add_individual(self, individual):
+
+    def add_individual(self, individual: Genome) -> None:
         """
         Add an individual genome to the population
         """
         self.individuals.append(individual)
-    
-    def print_population(self):
+
+    def print_population(self) -> None:
         """
         Print all individuals in the population
         """
@@ -24,7 +27,7 @@ class Population:
         for individual in self.individuals:
             individual.print_genome()
 
-    def evaluate_fitness(self, logger=None):
+    def evaluate_fitness(self, logger : Logger) -> None:
         """
         Evaluate fitness function for all individuals in the population
         """
@@ -34,7 +37,6 @@ class Population:
             # mutation did not change anything 
             # or skip evaluation of whats already evaluated
             if not individual.first_evaluation and (individual.actives_mutated == 0 or individual == self.fittest):
-                
                 if individual != self.fittest:
                     logger.log(type="DEBUG", message=f"Skipped fitness evaluation for individual {individual}")
                 continue
@@ -42,8 +44,7 @@ class Population:
             individual.fitness = self.fitness_function.evaluate(individual)
             logger.log(type="DEBUG", message=f"Evaluated fitness for individual {individual} with fitness {individual.fitness}")
             time_end = time.time()
-            if logger is not None:
-                logger.log_fitness_call(time_end - time_start)
+            logger.log_fitness_call(time_end - time_start)
             
             if self.fittest == None:
                 self.fittest = individual
@@ -51,13 +52,16 @@ class Population:
             if individual.fitness <= self.fittest.fitness:
                 self.fittest = individual
                 
-    def select_fittest(self):
+    def select_fittest(self) -> Genome:
         return self.fittest
 
-    def generate_random_population(self, gate_set=None, max_operations=100, max_qubits=10, max_qubits_needed=1, population_size=100):
-        """
-        Generate a random population of genomes
-        """
+    def generate_random_population(
+                                    self, 
+                                    gate_set : List[Gate], 
+                                    max_operations : int, 
+                                    max_qubits : int, 
+                                    max_qubits_needed : int, 
+                                    population_size : int) -> "Population":
         for _ in range(population_size):
             individual = Genome(gate_set=gate_set, qubits=max_qubits, operations=max_operations, max_qubits_needed=max_qubits_needed).generate_random_individual()
             print(f"Generated individual: {individual}")

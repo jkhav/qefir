@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
         filename = 'final_circuit.qasm'
         # simulate the circuit with sliqsim
-        basis_state = '0' * 2
+        basis_state = '11'
         res = subprocess.run(['./SliQSim', '--sim_qasm', filename, '--type', '1', '--basis_state', basis_state], capture_output=True)
         res_str = res.stdout.decode('utf-8')
         print("SliQSim output:")
