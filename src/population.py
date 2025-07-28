@@ -27,6 +27,9 @@ class Population:
         for individual in self.individuals:
             individual.print_genome()
 
+    def sort_by_fitness(self) -> List[Genome]:
+        return sorted(self.individuals, key=lambda x: x.fitness)
+
     def evaluate_fitness(self, logger : Logger) -> None:
         """
         Evaluate fitness function for all individuals in the population
@@ -36,12 +39,12 @@ class Population:
             
             # mutation did not change anything 
             # or skip evaluation of whats already evaluated
-            if not individual.first_evaluation and (individual.actives_mutated == 0 or individual == self.fittest):
-                if individual != self.fittest:
-                    logger.log(type="DEBUG", message=f"Skipped fitness evaluation for individual {individual}")
-                continue
-            individual.first_evaluation = False
-            individual.fitness = self.fitness_function.evaluate(individual)
+            #if not individual.first_evaluation and (individual.actives_mutated == 0 or individual == self.fittest):
+            #    if individual != self.fittest:
+            #        logger.log(type="DEBUG", message=f"Skipped fitness evaluation for individual {individual}")
+            #    continue
+            #individual.first_evaluation = False
+            individual.fitness = self.fitness_function.evaluate(individual, logger)
             logger.log(type="DEBUG", message=f"Evaluated fitness for individual {individual} with fitness {individual.fitness}")
             time_end = time.time()
             logger.log_fitness_call(time_end - time_start)

@@ -8,7 +8,9 @@ class Logger:
         
         self.fitness_calls = 0
         self.fitness_time = 0.0
-        
+        self.conversion_time = 0.0
+        self.simulation_time = 0.0
+        self.sliqsim_time = 0.0
         self.mutations = 0
         self.mutations_time = 0.0
         
@@ -38,6 +40,15 @@ class Logger:
         self.mutations += 1
         self.mutations_time += time_taken
         
+    def log_sliqsim(self, time_taken):
+        self.sliqsim_time += time_taken
+
+    def log_simulation(self, time_taken):
+        self.simulation_time += time_taken
+        
+    def log_conversion(self, time_taken):
+        self.conversion_time += time_taken
+        
     def log_useless_mutation(self):
         self.useless_mutations += 1
     
@@ -48,12 +59,14 @@ class Logger:
         self.file.write("\n--- Evolution Statistics ---\n")
         self.file.write(f"Total fitness calls: {self.fitness_calls}\n")
         self.file.write(f"Total fitness time: {self.fitness_time:.4f} seconds\n")
+        self.file.write(f"Total simulation time: {self.simulation_time:.4f} seconds\n")
+        self.file.write(f"Total SliQSim time: {self.sliqsim_time:.4f} seconds\n")
+        self.file.write(f"Total conversion time: {self.conversion_time:.4f} seconds\n")
         
         self.file.write(f"Total mutations: {self.mutations}\n")
         self.file.write(f"Total mutation time: {self.mutations_time:.4f} seconds\n")
         self.file.write(f"Useless mutations: {self.useless_mutations}\n")
         self.file.write(f"\n")
-        
     def print_final_circuit(self, individual):
         """
         Print the final circuit to the log file

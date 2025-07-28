@@ -8,6 +8,7 @@ import selection
 import crossover
 import random
 from genome import Genome
+from selection import StochasticUniversalSampling
 
 class EvolutionManager:
     def __init__(self):
@@ -55,14 +56,19 @@ class EvolutionManager:
         
         # allow elitism for the fittest individual
         new_population.add_individual(self.fittest)
+        new_population.fittest = self.fittest
         for _ in range(self.population_size - 1):
             
             # if the crossover rate is met, do the crossover
             # otherwise, like in CGP, mutate the fittest individual
             prob = random.uniform(0, 1)
+            selection = StochasticUniversalSampling()
             if prob < self.crossover_rate:
-                par1 = self.selection.select(self.population)
-                par2 = self.selection.select(self.population)
+                parents = selection.select(self.population, k=2)
+                par1 = parents[0]
+                par2 = parents[1]
+                #par1 = self.selection.select(self.population)
+                #par2 = self.selection.select(self.population)
                 child = self.crossover.crossover(par1, par2)
                 self.logger.log(type='DEBUG', message=f"Selected parent1 {par1}")
                 self.logger.log(type='DEBUG', message=f"Selected parent2 {par2}")
@@ -111,9 +117,8 @@ class EvolutionManager:
 
         # while solution not found or limit not reached
         while self.population.select_fittest().fitness > (0.0 + self.allowed_err) and self.population_count() < self.max_populations:
-            # generate new population from the fittest individual
-            self.population = self.new_population_step()
             self.increment_population()
+            self.population = self.new_population_step()
 
 
         self.logger.log(type='INFO', message=f"Evolution finished after {self.population_count()} populations")            
