@@ -1,6 +1,5 @@
 import sys
 import math
-import qiskit
 import evolution as evo
 import numpy as np
 import subprocess

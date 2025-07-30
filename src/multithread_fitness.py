@@ -1,6 +1,7 @@
 from genome import Genome
 from fitness import Fitness
 import subprocess
+import fcntl
 from logger import Logger
 import numpy as np
 import time
@@ -100,7 +101,7 @@ class MultiThreadedFitnessEvaluator:
             genome.fitness = self.fitness_function.evaluate(genome, statevector_0, statevector_1, logger)
             if self.fittest is None or genome.fitness < self.fittest.fitness:
                 self.fittest = genome
-            logger.log(type="DEBUG", message=f"Evaluated fitness for individual {genome} with fitness {genome.fitness}")
+            #logger.log(type="DEBUG", message=f"Evaluated fitness for individual {genome} with fitness {genome.fitness}")
             ids_found += 1
         return self.fittest
 
