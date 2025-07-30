@@ -39,6 +39,7 @@ if __name__ == "__main__":
 
         def gate_count(individual):
             i = 0
+            count = 0
             in_actives = True
             inactives_end = 0
             while i < len(individual.genes):
