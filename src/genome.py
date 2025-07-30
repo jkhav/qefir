@@ -2,7 +2,6 @@ import math
 from gene import Gene
 import copy
 import random
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from typing import List
 import time
 from logger import Logger

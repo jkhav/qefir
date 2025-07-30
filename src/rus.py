@@ -4,7 +4,6 @@ import qiskit
 import evolution as evo
 import numpy as np
 import subprocess
-import pennylane as qml
 import time
 from logger import Logger
 

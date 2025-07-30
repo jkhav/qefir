@@ -1,11 +1,9 @@
 from genome import Genome
 from fitness import Fitness
 import subprocess
-import fcntl
 from logger import Logger
 import numpy as np
 import time
-import select
 
 class MultiThreadedFitnessEvaluator:
     def __init__(self, fitness_function : Fitness) -> None:
