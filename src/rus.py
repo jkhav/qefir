@@ -37,6 +37,25 @@ if __name__ == "__main__":
                     count += 1
             return count
 
+        def gate_count(individual):
+            i = 0
+            in_actives = True
+            inactives_end = 0
+            while i < len(individual.genes):
+                gene = individual.genes[i]
+                if i > inactives_end:
+                    in_actives = True
+                    inactives_end = 0
+            
+                if gene.gate == 'SKIP':
+                    in_actives = False
+                    inactives_end = i + gene.skips + 1
+                
+                if in_actives:
+                    count += 1
+                i += 1
+            return count
+
         def compute_success_probability(statevector):
             return 0
         
@@ -58,6 +77,7 @@ if __name__ == "__main__":
             "t_gate_penalty": 0.00001,
             "success_probability": 0.2,
             "max_depth": 0.000005,
+            "gate_count": 0.000005,
         }
         success_probability = (compute_success_probability(statevector_0) + compute_success_probability(statevector_1)) / 2
         max_depth = find_max_depth(individual)
@@ -66,9 +86,11 @@ if __name__ == "__main__":
         statevector_1 = extract_non_ancilla_qubit_state(statevector_1, non_ancilla_idx, individual.qubits)
         fidelity = (fidelity(statevector_0, expected_state_0) + fidelity(statevector_1, expected_state_1)) / 2
         euclidean_distance = (euclidean(statevector_0, expected_state_0) + euclidean(statevector_1, expected_state_1)) / 2
-
+        gate_count = gate_count(individual)
         t_gate_penalty = number_of_t_gates(individual)
+        
         fitness = 0
+        fitness += weights["gate_count"] * gate_count
         fitness += weights["euclidean"] * euclidean_distance
         fitness += weights["t_gate_penalty"] * t_gate_penalty
         fitness += weights["success_probability"] * success_probability
@@ -93,9 +115,9 @@ if __name__ == "__main__":
                                 max_operations=30,
                                 fitness_function=fitness,
                                 max_qubits=2,
-                                active_mut_rate=0.05,
-                                inactive_mut_rate=0.5,
-                                crossover_rate=0.7,
+                                active_mut_rate=0.2,
+                                inactive_mut_rate=0.65,
+                                crossover_rate=0.6,
                                 population_size=100,
                                 allowed_err=0.0000000001
                                 )
