@@ -1,0 +1,7 @@
+.ddsim
+.quasimodo
+.venv
+.vscode
+src/__pycache__
+src/logs
+src/result_circuits
