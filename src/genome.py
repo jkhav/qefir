@@ -137,9 +137,34 @@ class Genome:
                 qasm_str = qasm_str[:-2] + ";\n"
                 i += 1
         return qasm_str
+
+    def to_qasm_no_newlines(self) -> str:
+        qasm_str = "OPENQASM 2.0;include \"qelib1.inc\";qreg q[{}];creg c[{}];".format(self.qubits, self.qubits)
+        i = 0
+        while i < len(self.genes):
+            gene = self.genes[i]
+            if gene.gate == 'SKIP':
+                i += gene.skips + 1
+                continue
+            else:
+                gate = next((g for g in self.gate_set if g.name == gene.gate), None)
+                j = 0
+                qasm_str += f"{gate.name} "
+                while j < gate.qubits:
+                    qasm_str += f"q[{gene.parts[j]}], "
+                    j += 1
+                qasm_str = qasm_str[:-2] + ";"
+                i += 1
+        return qasm_str
     
     def check_fitness_eval(self) -> bool:
         return False if self.first_evaluation or self.actives_mutated == 0 else True
     
     def first_evaluation_done(self) -> None:
         self.first_evaluation = False
+
+    def __hash__(self) -> int:
+        hash = 0
+        for gene in self.genes:
+            hash += hash(gene)
+        return hash

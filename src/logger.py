@@ -10,10 +10,11 @@ class Logger:
         self.fitness_time = 0.0
         self.conversion_time = 0.0
         self.simulation_time = 0.0
-        self.sliqsim_time = 0.0
         self.mutations = 0
         self.mutations_time = 0.0
-        
+        self.crossovers = 0
+        self.crossover_time = 0.0
+        self.selection_time = 0.0
         self.useless_mutations = 0
     
     def log(self, type='MISC', message='default message'):
@@ -34,14 +35,15 @@ class Logger:
         self.fitness_time += time_taken
         
     def log_mutation(self, time_taken):
-        """
-        Log a mutation with its type
-        """
         self.mutations += 1
         self.mutations_time += time_taken
-        
-    def log_sliqsim(self, time_taken):
-        self.sliqsim_time += time_taken
+
+    def log_crossover(self, time_taken):
+        self.crossovers += 1
+        self.crossover_time += time_taken
+
+    def log_selection(self, time_taken):
+        self.selection_time += time_taken
 
     def log_simulation(self, time_taken):
         self.simulation_time += time_taken
@@ -59,12 +61,15 @@ class Logger:
         self.file.write("\n--- Evolution Statistics ---\n")
         self.file.write(f"Total fitness calls: {self.fitness_calls}\n")
         self.file.write(f"Total fitness time: {self.fitness_time:.4f} seconds\n")
-        self.file.write(f"Total simulation time: {self.simulation_time:.4f} seconds\n")
-        self.file.write(f"Total SliQSim time: {self.sliqsim_time:.4f} seconds\n")
         self.file.write(f"Total conversion time: {self.conversion_time:.4f} seconds\n")
         
         self.file.write(f"Total mutations: {self.mutations}\n")
         self.file.write(f"Total mutation time: {self.mutations_time:.4f} seconds\n")
+
+        self.file.write(f"Total crossovers: {self.crossovers}\n")
+        self.file.write(f"Total crossover time: {self.crossover_time:.4f} seconds\n")
+        self.file.write(f"Total selection time: {self.selection_time:.4f} seconds\n")
+
         self.file.write(f"Useless mutations: {self.useless_mutations}\n")
         self.file.write(f"\n")
     def print_final_circuit(self, individual):

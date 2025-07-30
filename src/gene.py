@@ -26,3 +26,10 @@ class Gene:
 
     def copy(self) -> "Gene":
         return copy.deepcopy(self)
+
+    def __hash__(self) -> int:
+        hash = 0
+        hash += hash(self.gate)
+        hash += hash(self.parts)
+        hash += hash(self.skips)
+        return hash
