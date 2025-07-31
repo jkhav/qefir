@@ -36,10 +36,10 @@ class Genome:
         print(f"Fitness: {self.fitness}")
 
     def mutate_gene(self, gene: Gene, logger : Logger) -> None:
-        prob_change_gate = 0.05
-        prob_change_indice = 0.8
-        prob_change_skips = 0.1
-        prob_swap_operations = 0.05
+        prob_change_gate = 0.3
+        prob_change_indice = 0.2
+        prob_change_skips = 0.4
+        prob_swap_operations = 0.1
         assert prob_change_gate + prob_change_indice + prob_change_skips + prob_swap_operations == 1
         
         prob = random.uniform(0, 1)
