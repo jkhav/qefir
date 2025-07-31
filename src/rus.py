@@ -7,7 +7,7 @@ import time
 from logger import Logger
 
 if __name__ == "__main__":
-    def sliqsim_fitness(individual, statevector_0 : np.array, statevector_1 : np.array, logger : Logger):
+    def sliqsim_fitness(individual, statevector_0 : np.array, statevector_1 : np.array, statevector_plus : np.array, statevector_minus : np.array, logger : Logger):
         def extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, qubits):
             """
             Given statevector is ordered in big endian order, meaning that the amplitudes in a two qubits system
@@ -80,19 +80,29 @@ if __name__ == "__main__":
             return 0
 
         non_ancilla_idx = individual.qubits - 1
-        #expected_state_1 = np.array([1, 0]) * 0 + np.array([0, 1]) * (5 - 2j)/np.sqrt(29)
-        expected_state_1 = np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7)
-        #expected_state_1 = np.array([1, 0]) * ((np.sqrt(2) * 1j)/np.sqrt(3)) + np.array([0, 1]) * (1/np.sqrt(3))
-        
-        #expected_state_0 = np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1])
-        expected_state_0 = np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1])
-        #expected_state_0 = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
 
+        # I + j*sqrt(2)*X / sqrt(3)
+        expected_state_1 = np.array([1, 0]) * ((np.sqrt(2) * 1j)/np.sqrt(3)) + np.array([0, 1]) * (1/np.sqrt(3))
+        expected_state_0 = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
+        expected_state_plus = np.array([1, 0]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6))
+        expected_state_minus = np.array([1, 0]) * ((1 - np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(6))
+        
+        # (5I + 2jZ) / sqrt(29)
+        #expected_state_1 = np.array([1, 0]) * 0 + np.array([0, 1]) * (5 - 2j)/np.sqrt(29)
+        #expected_state_0 = np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1])
+        #expected_state_plus = np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((5-2j)/np.sqrt(58))
+        #expected_state_minus = np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((-5+2j)/np.sqrt(58))
+
+        # (2X + sqrt(2)*Y + Z) / sqrt(7)
+        #expected_state_1 = np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7)
+        #expected_state_0 = np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1])
+        #expected_state_plus = np.array([1, 0]) * ((3 - np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(14))
+        #expected_state_minus = np.array([1, 0]) * ((3 + np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 - np.sqrt(2) * 1j)/np.sqrt(14))
         weights = {
-            "euclidean": 0,
-            "fidelity": 1,
+            "euclidean": 1,
+            "fidelity": 0,
             "t_gate_penalty": 0.00001,
-            "success_probability": 0.2,
+            "success_probability": 0.0,
             "max_depth": 0.000005,
             "gate_count": 0.000005,
         }
@@ -101,8 +111,10 @@ if __name__ == "__main__":
 
         statevector_0 = extract_non_ancilla_qubit_state(statevector_0, non_ancilla_idx, individual.qubits)
         statevector_1 = extract_non_ancilla_qubit_state(statevector_1, non_ancilla_idx, individual.qubits)
-        fidelity = (fidelity(statevector_0, expected_state_0) + fidelity(statevector_1, expected_state_1)) / 2
-        euclidean_distance = (euclidean(statevector_0, expected_state_0) + euclidean(statevector_1, expected_state_1)) / 2
+        statevector_plus = extract_non_ancilla_qubit_state(statevector_plus, non_ancilla_idx, individual.qubits)
+        statevector_minus = extract_non_ancilla_qubit_state(statevector_minus, non_ancilla_idx, individual.qubits)  
+        fidelity = (fidelity(statevector_0, expected_state_0) + fidelity(statevector_1, expected_state_1) + fidelity(statevector_plus, expected_state_plus) + fidelity(statevector_minus, expected_state_minus)) / 4
+        euclidean_distance = (euclidean(statevector_0, expected_state_0) + euclidean(statevector_1, expected_state_1) + euclidean(statevector_plus, expected_state_plus) + euclidean(statevector_minus, expected_state_minus)) / 4
         gate_count = gate_count(individual)
         t_gate_penalty = number_of_t_gates(individual)
         
@@ -114,7 +126,6 @@ if __name__ == "__main__":
         fitness += weights["max_depth"] * max_depth
         fitness += weights["fidelity"] * fidelity
         return fitness
-
 
     hadamard = evo.Gate(name='h', qubits=1, parameter=0.0)
     s = evo.Gate(name='s', qubits=1, parameter=0.0)
