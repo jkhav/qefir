@@ -1,12 +1,12 @@
 import sys
 import math
-import qiskit
+#from qiskit import QuantumCircuit
 import evolution as evo
 import numpy as np
 import subprocess
 import pennylane as qml
 import sys
-
+#import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     def sliqsim_fitness(file = 'final_circuit.qasm'):
@@ -101,6 +101,10 @@ if __name__ == "__main__":
                         
         return dist
 
+    #def draw_circuit(file):
+    #    circuit = QuantumCircuit.from_qasm_file(file)
+    #    fig = circuit.draw(output='mpl')
+    #    fig.savefig('circuit.png')
 
     def test():
         def extract_non_ancilla_qubit_state_fast(statevector, qubits):
@@ -124,12 +128,12 @@ if __name__ == "__main__":
         #]
 
         # (2X + sqrt(2)*Y + Z) / sqrt(7) -- tmp4.qasm
-        expected_states = [
-            np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1]),
-            np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7),
-            np.array([1, 0]) * ((3 - np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(14)),
-            np.array([1, 0]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((3 + np.sqrt(2) * 1j)/np.sqrt(14)),
-        ]
+        #expected_states = [
+        #    np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1]),
+        #    np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7),
+        #    np.array([1, 0]) * ((3 - np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(14)),
+        #    np.array([1, 0]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((3 + np.sqrt(2) * 1j)/np.sqrt(14)),
+        #]
         
         # (I + sqrt(2)jX)/sqrt(3) -- tmp3.qasm
         #expected_states = [
@@ -165,7 +169,7 @@ if __name__ == "__main__":
 
         distances = []
         for i, basis_state in enumerate(basis_states):
-            res = subprocess.run(['./SliQSim', '--sim_qasm', 'tmp6.qasm', '--type', '1', '--basis_state', basis_state], capture_output=True)
+            res = subprocess.run(['./SliQSim', '--sim_qasm', '../reference_rus_circuits/3i+2jz.qasm', '--type', '1', '--basis_state', basis_state], capture_output=True)
             res_str = res.stdout.decode('utf-8')
             start = res_str.find('[')
             end = res_str.find(']')
@@ -176,11 +180,14 @@ if __name__ == "__main__":
             statevector = extract_non_ancilla_qubit_state_fast(statevector, 2)
             print(f"statevector after projection: {statevector}")
             distances.append(np.linalg.norm(statevector - expected_states[i]))
-            fidelity = qml.math.fidelity_statevector(statevector, expected_states[i])
+            fidelity = 1.0 - qml.math.fidelity_statevector(statevector, expected_states[i])
             print(f"Fidelity for {basis_state}: {fidelity}")
         average_distance = sum(distances) / len(distances)
         print(f"Average distance: {average_distance}")
         print(f"Distances: {distances}")
+
+    #draw_circuit('../reference_rus_circuits/3i+2jz.qasm')
+    #input()
 
     test()
     exit(0)
