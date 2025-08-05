@@ -57,7 +57,7 @@ class MultiThreadedFitnessEvaluator:
             statevector.append(element)
         return np.array(statevector)
 
-    def parse_config(self, config : str) -> tuple[int, np.array, np.array, np.array, np.array]:
+    def parse_config(self, config : str) -> tuple[int, list[np.array]]:
         """
             Parse the config from the simulator
             Return the ID, statevector for basis state |0>, statevector for basis state |1> on the non-ancilla qubit
@@ -84,7 +84,7 @@ class MultiThreadedFitnessEvaluator:
         statevector_minus_end = config.find('</statevector_minus>')
         statevector_minus = self.parse_statevector(config[statevector_minus_start+1:statevector_minus_end-1])
 
-        return id, statevector_0, statevector_1, statevector_plus, statevector_minus
+        return id, [statevector_0, statevector_1, statevector_plus, statevector_minus]
 
     def read_config(self) -> str:
         config = ''
@@ -107,9 +107,9 @@ class MultiThreadedFitnessEvaluator:
         ids_found = 0
         while(ids_found < self.circuits_sent):
             config = self.read_config()
-            id, statevector_0, statevector_1, statevector_plus, statevector_minus = self.parse_config(config)
+            id, statevectors = self.parse_config(config)
             genome = self.get_genome(id)
-            genome.fitness = self.fitness_function.evaluate(genome, statevector_0, statevector_1, statevector_plus, statevector_minus, logger)
+            genome.fitness = self.fitness_function.evaluate(genome, statevectors, logger)
             if self.fittest is None or genome.fitness < self.fittest.fitness:
                 self.fittest = genome
             #logger.log(type="DEBUG", message=f"Evaluated fitness for individual {genome} with fitness {genome.fitness}")
@@ -131,9 +131,9 @@ class MultiThreadedFitnessEvaluator:
         fittest = None
         while(received < len(batch)):
             config = self.read_config()
-            id, statevector_0, statevector_1, statevector_plus, statevector_minus = self.parse_config(config)
+            id, statevectors = self.parse_config(config)
             genome = self.get_genome(id)
-            genome.fitness = self.fitness_function.evaluate(genome, statevector_0, statevector_1, statevector_plus, statevector_minus, logger)
+            genome.fitness = self.fitness_function.evaluate(genome, statevectors, logger)
             if fittest is None or genome.fitness < fittest.fitness:
                 fittest = genome
             received += 1

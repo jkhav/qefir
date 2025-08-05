@@ -7,7 +7,7 @@ import time
 from logger import Logger
 
 if __name__ == "__main__":
-    def sliqsim_fitness(individual, statevector_0 : np.array, statevector_1 : np.array, statevector_plus : np.array, statevector_minus : np.array, logger : Logger):
+    def sliqsim_fitness(individual, statevectors : list[np.array], logger : Logger):
         def extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, qubits):
             """
             Given statevector is ordered in big endian order, meaning that the amplitudes in a two qubits system
@@ -25,9 +25,11 @@ if __name__ == "__main__":
                     else:
                         amp1 += statevector[i]
             norm = np.sqrt(abs(amp0)**2 + abs(amp1)**2)
+
+            success_probability = abs(amp0)**2 + abs(amp1)**2
             if norm == 0:
-                return np.array([1, 0])
-            return np.array([amp0, amp1]) / norm  
+                return np.array([1, 0]), 0
+            return np.array([amp0, amp1]) / norm, success_probability
 
         def extract_non_ancilla_qubit_state_fast(statevector, qubits):
             # assume non-ancilla is always qubits-1,
@@ -72,72 +74,96 @@ if __name__ == "__main__":
                     count += 1
                 i += 1
             return count
-
-        def compute_success_probability(statevector):
-            return 0
+            
         
         def find_max_depth(individual):
             return 0
 
         non_ancilla_idx = individual.qubits - 1
-
-        # I + j*sqrt(2)*X / sqrt(3)
-        #expected_state_1 = np.array([1, 0]) * ((np.sqrt(2) * 1j)/np.sqrt(3)) + np.array([0, 1]) * (1/np.sqrt(3))
-        #expected_state_0 = np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3)
-        #expected_state_plus = np.array([1, 0]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6))
-        #expected_state_minus = np.array([1, 0]) * ((1 - np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(6))
-        
-        # (5I + 2jZ) / sqrt(29)
-        expected_state_1 = np.array([1, 0]) * 0 + np.array([0, 1]) * (5 - 2j)/np.sqrt(29)
-        expected_state_0 = np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1])
-        expected_state_plus = np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((5-2j)/np.sqrt(58))
-        expected_state_minus = np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((-5+2j)/np.sqrt(58))
-
-        # (2X + sqrt(2)*Y + Z) / sqrt(7)
-        #expected_state_1 = np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7)
-        #expected_state_0 = np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1])
-        #expected_state_plus = np.array([1, 0]) * ((3 - np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(14))
-        #expected_state_minus = np.array([1, 0]) * ((3 + np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 - np.sqrt(2) * 1j)/np.sqrt(14))
-
-        # (3I + 2jZ)/sqrt(13) -- tmp6.qasm
-        #expected_state_0 = np.array([1, 0]) * ((3+2j)/np.sqrt(13)) + np.array([0, 1]) * 0
-        #expected_state_1 = np.array([1, 0]) * 0 + np.array([0, 1]) * ((3-2j)/np.sqrt(13))
-        #expected_state_plus = np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((3-2j)/np.sqrt(26))
-        #expected_state_minus = np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((-3+2j)/np.sqrt(26))
-
-        # (4I + jZ)/sqrt(17) -- tmp7.qasm
-        #expected_state_0 = np.array([1, 0]) * ((4+1j)/np.sqrt(17)) + np.array([0, 1]) * 0
-        #expected_state_1 = np.array([1, 0]) * 0 + np.array([0, 1]) * ((4-1j)/np.sqrt(17))
-        #expected_state_plus = np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((4-1j)/np.sqrt(34))
-        #expected_state_minus = np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((-4+1j)/np.sqrt(34))
-        
         weights = {
             "euclidean": 1,
             "fidelity": 0,
             "t_gate_penalty": 0.00001,
-            "success_probability": 0.0,
+            "low_success_probability_penalty": 0.5,
             "max_depth": 0.000005,
             "gate_count": 0.000005,
         }
-        success_probability = (compute_success_probability(statevector_0) + compute_success_probability(statevector_1)) / 2
+        # compute circuit specific metrics
         max_depth = find_max_depth(individual)
-
-        statevector_0 = extract_non_ancilla_qubit_state(statevector_0, non_ancilla_idx, individual.qubits)
-        statevector_1 = extract_non_ancilla_qubit_state(statevector_1, non_ancilla_idx, individual.qubits)
-        statevector_plus = extract_non_ancilla_qubit_state(statevector_plus, non_ancilla_idx, individual.qubits)
-        statevector_minus = extract_non_ancilla_qubit_state(statevector_minus, non_ancilla_idx, individual.qubits)
-        fidelity = (fidelity(statevector_0, expected_state_0) + fidelity(statevector_1, expected_state_1) + fidelity(statevector_plus, expected_state_plus) + fidelity(statevector_minus, expected_state_minus)) / 4
-        euclidean_distance = (euclidean(statevector_0, expected_state_0) + euclidean(statevector_1, expected_state_1) + euclidean(statevector_plus, expected_state_plus) + euclidean(statevector_minus, expected_state_minus)) / 4
         gate_count = gate_count(individual)
         t_gate_penalty = number_of_t_gates(individual)
+        
+
+        # (5I + 2jZ) / sqrt(29) -- tmp2.qasm
+        #expected_states = [
+        #    np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1]),
+        #    np.array([1, 0]) * 0 + np.array([0, 1]) * (5 - 2j)/np.sqrt(29),
+        #    np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((5-2j)/np.sqrt(58)), # state +
+        #    np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((-5+2j)/np.sqrt(58)), # state -
+        #]
+
+        # (2X + sqrt(2)*Y + Z) / sqrt(7) -- tmp4.qasm
+        #expected_states = [
+        #    np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1]),
+        #    np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7),
+        #    np.array([1, 0]) * ((3 - np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(14)),
+        #    np.array([1, 0]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((3 + np.sqrt(2) * 1j)/np.sqrt(14)),
+        #]
+        
+        # (I + sqrt(2)jX)/sqrt(3) -- tmp3.qasm
+        #expected_states = [
+        #    np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3),
+        #    np.array([1, 0]) * ((np.sqrt(2) * 1j)/np.sqrt(3)) + np.array([0, 1]) * (1/np.sqrt(3)),
+        #    np.array([1, 0]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6)),
+        #    np.array([1, 0]) * ((1 - np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(6)),
+        #]
+        
+        # (I + 2jZ)/sqrt(5) -- tmp5.qasm
+        #expected_states = [
+        #    np.array([1, 0]) * ((1+2j)/np.sqrt(5)) + np.array([0, 1]) * 0,
+        #    np.array([1, 0]) * 0 + np.array([0, 1]) * ((1-2j)/np.sqrt(5)),
+        #    np.array([1, 0]) * ((1+2j)/np.sqrt(10)) + np.array([0, 1]) * ((1-2j)/np.sqrt(10)),
+        #    np.array([1, 0]) * ((1+2j)/np.sqrt(10)) + np.array([0, 1]) * ((-1+2j)/np.sqrt(10)),
+        #]
+        
+        # (3I + 2jZ)/sqrt(13) -- tmp6.qasm
+        expected_states = [
+            np.array([1, 0]) * ((3+2j)/np.sqrt(13)) + np.array([0, 1]) * 0,
+            np.array([1, 0]) * 0 + np.array([0, 1]) * ((3-2j)/np.sqrt(13)),
+            np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((3-2j)/np.sqrt(26)),
+            np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((-3+2j)/np.sqrt(26)),
+        ]        
+        
+        # (4I + jZ)/sqrt(17) -- tmp7.qasm
+        #expected_states = [
+        #    np.array([1, 0]) * ((4+1j)/np.sqrt(17)) + np.array([0, 1]) * 0,
+        #    np.array([1, 0]) * 0 + np.array([0, 1]) * ((4-1j)/np.sqrt(17)),
+        #    np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((4-1j)/np.sqrt(34)),
+        #    np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((-4+1j)/np.sqrt(34)),
+        #]
+
+        fdlt = 0
+        euclidean_distance = 0
+        success_probability = 0
+        success_probability_tmp = 0
+        # compute statevector specific metrics
+        for i, statevector in enumerate(statevectors):
+            statevector, success_probability_tmp = extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, individual.qubits)
+            fdlt += fidelity(statevector, expected_states[i])
+            euclidean_distance += euclidean(statevector, expected_states[i])
+            success_probability += success_probability_tmp
+        fdlt /= len(statevectors)
+        euclidean_distance /= len(statevectors)
+        success_probability /= len(statevectors)
+        low_success_probability_penalty = 0 if success_probability > 0.9 else 1 - success_probability
         
         fitness = 0
         fitness += weights["gate_count"] * gate_count
         fitness += weights["euclidean"] * euclidean_distance
         fitness += weights["t_gate_penalty"] * t_gate_penalty
-        fitness += weights["success_probability"] * success_probability
+        fitness += weights["low_success_probability_penalty"] * low_success_probability_penalty
         fitness += weights["max_depth"] * max_depth
-        fitness += weights["fidelity"] * fidelity
+        fitness += weights["fidelity"] * fdlt
         return fitness
 
     hadamard = evo.Gate(name='h', qubits=1, parameter=0.0)
@@ -152,14 +178,14 @@ if __name__ == "__main__":
     evolution_manager = evo.EvolutionManager()
     evolution_manager.initialize(
                                 gate_set=gate_set,
-                                max_populations=100, 
-                                max_operations=50,
+                                max_populations=1000, 
+                                max_operations=100,
                                 fitness_function=fitness,
-                                max_qubits=2,
+                                max_qubits=5,
                                 active_mut_rate=0.45,
                                 inactive_mut_rate=0.9,
                                 crossover_rate=0.45,
-                                population_size=5000,
+                                population_size=12,
                                 allowed_err=0.0000000001
                                 )
     circuit = evolution_manager.evolve()

@@ -151,53 +151,7 @@ if __name__ == "__main__":
             if norm == 0:
                 return np.array([1, 0])
             return np.array([amp0, amp1]) / norm  
-        # (5I + 2jZ) / sqrt(29) -- tmp2.qasm
-        #expected_states = [
-        #    np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1]),
-        #    np.array([1, 0]) * 0 + np.array([0, 1]) * (5 - 2j)/np.sqrt(29),
-        #    np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((5-2j)/np.sqrt(58)), # state +
-        #    np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((-5+2j)/np.sqrt(58)), # state -
-        #]
 
-        # (2X + sqrt(2)*Y + Z) / sqrt(7) -- tmp4.qasm
-        #expected_states = [
-        #    np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1]),
-        #    np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7),
-        #    np.array([1, 0]) * ((3 - np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(14)),
-        #    np.array([1, 0]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((3 + np.sqrt(2) * 1j)/np.sqrt(14)),
-        #]
-        
-        # (I + sqrt(2)jX)/sqrt(3) -- tmp3.qasm
-        #expected_states = [
-        #    np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3),
-        #    np.array([1, 0]) * ((np.sqrt(2) * 1j)/np.sqrt(3)) + np.array([0, 1]) * (1/np.sqrt(3)),
-        #    np.array([1, 0]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6)),
-        #    np.array([1, 0]) * ((1 - np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(6)),
-        #]
-        
-        # (I + 2jZ)/sqrt(5) -- tmp5.qasm
-        #expected_states = [
-        #    np.array([1, 0]) * ((1+2j)/np.sqrt(5)) + np.array([0, 1]) * 0,
-        #    np.array([1, 0]) * 0 + np.array([0, 1]) * ((1-2j)/np.sqrt(5)),
-        #    np.array([1, 0]) * ((1+2j)/np.sqrt(10)) + np.array([0, 1]) * ((1-2j)/np.sqrt(10)),
-        #    np.array([1, 0]) * ((1+2j)/np.sqrt(10)) + np.array([0, 1]) * ((-1+2j)/np.sqrt(10)),
-        #]
-        
-        # (3I + 2jZ)/sqrt(13) -- tmp6.qasm
-        #expected_states = [
-        #    np.array([1, 0]) * ((3+2j)/np.sqrt(13)) + np.array([0, 1]) * 0,
-        #    np.array([1, 0]) * 0 + np.array([0, 1]) * ((3-2j)/np.sqrt(13)),
-        #    np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((3-2j)/np.sqrt(26)),
-        #    np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((-3+2j)/np.sqrt(26)),
-        #]        
-        
-        # (4I + jZ)/sqrt(17) -- tmp7.qasm
-        expected_states = [
-            np.array([1, 0]) * ((4+1j)/np.sqrt(17)) + np.array([0, 1]) * 0,
-            np.array([1, 0]) * 0 + np.array([0, 1]) * ((4-1j)/np.sqrt(17)),
-            np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((4-1j)/np.sqrt(34)),
-            np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((-4+1j)/np.sqrt(34)),
-        ]
 
         distances = []
         basis_states = ['00', '01', '0+', '0-']
@@ -214,7 +168,7 @@ if __name__ == "__main__":
             entries = [x.strip() for x in vector_str.split(',')]
             statevector = [complex(e.replace('i', 'j')) for e in entries]
             print(f"statevector for {basis_state}: {statevector}")
-            statevector = extract_non_ancilla_qubit_state(statevector, 0, 2)
+            statevector = extract_non_ancilla_qubit_state(statevector, 0, 5)
             print(f"statevector after projection: {statevector}")
             distances.append(np.linalg.norm(statevector - expected_states[i]))
             fidelity = 1.0 - qml.math.fidelity_statevector(statevector, expected_states[i])
