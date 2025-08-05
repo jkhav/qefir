@@ -5,6 +5,7 @@ import fcntl
 from logger import Logger
 import numpy as np
 import time
+import os
 
 class MultiThreadedFitnessEvaluator:
     def __init__(self, fitness_function : Fitness) -> None:
@@ -35,12 +36,15 @@ class MultiThreadedFitnessEvaluator:
         self.fittest = None
 
     def write_to_stdin(self, xml : str) -> None:
-        while(len(xml) > self.get_pipe_size()):
-            self.simulator.stdin.write(xml[:self.get_pipe_size()])
+        try:
+            while(len(xml) > self.get_pipe_size()):
+                self.simulator.stdin.write(xml[:self.get_pipe_size()])
+                self.simulator.stdin.flush()
+                xml = xml[self.get_pipe_size():]
+            self.simulator.stdin.write(xml)
             self.simulator.stdin.flush()
-            xml = xml[self.get_pipe_size():]
-        self.simulator.stdin.write(xml)
-        self.simulator.stdin.flush()
+        except Exception as e:
+            print(f"Error writing to stdin: {e}")
 
 
     def get_genome(self, id : int) -> Genome:
@@ -122,19 +126,39 @@ class MultiThreadedFitnessEvaluator:
         self.add_genome(genome)
         return xml
 
+    def read_batch(self, batch : list[Genome], logger : Logger) -> None:
+        received = 0
+        fittest = None
+        while(received < len(batch)):
+            config = self.read_config()
+            id, statevector_0, statevector_1, statevector_plus, statevector_minus = self.parse_config(config)
+            genome = self.get_genome(id)
+            genome.fitness = self.fitness_function.evaluate(genome, statevector_0, statevector_1, statevector_plus, statevector_minus, logger)
+            if fittest is None or genome.fitness < fittest.fitness:
+                fittest = genome
+            received += 1
+        return fittest
+
     def evaluate(self, population : "Population", logger : Logger) -> Genome:
         self.fittest = population.fittest
         time_start = time.time()
-        for genome in population.individuals:
-            conversion_start = time.time()
-            xml = self.genome_to_xml(genome)
-            conversion_end = time.time()
-            logger.log_conversion(conversion_end - conversion_start)
+        batch_size = os.cpu_count()
+        fittest = None
+        for i in range(0, len(population.individuals), batch_size):
+            batch = population.individuals[i:i+batch_size]
+            for genome in batch:
+                conversion_start = time.time()
+                xml = self.genome_to_xml(genome)
+                conversion_end = time.time()
+                logger.log_conversion(conversion_end - conversion_start)
 
-            self.write_to_stdin(xml)
-            self.circuits_sent += 1
+                self.write_to_stdin(xml)
+                self.circuits_sent += 1
+            batch_fittest = self.read_batch(batch, logger)
+            if fittest is None or batch_fittest.fitness < fittest.fitness:
+                fittest = batch_fittest
         # after passing all genomes to be evaluated, wait for all the results
-        fittest = self.read_results(logger)
+        #fittest = self.read_results(logger)
         time_end = time.time()
         logger.log_fitness_call(time_end - time_start)
 

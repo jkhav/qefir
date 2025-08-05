@@ -1,12 +1,36 @@
 import sys
 import math
-#from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit
 import evolution as evo
 import numpy as np
 import subprocess
 import pennylane as qml
 import sys
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import time
+import os
+
+def extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, qubits):
+    """
+    Given statevector is ordered in big endian order, meaning that the amplitudes in a two qubits system
+    are in order 00, 10, 01, 11
+    This function extracts the amplitudes where all ancilla bits are 0 -- for example states 001, 000 in case non-ancilla idx is 2
+    """
+    amp0 = 0j
+    amp1 = 0j
+    non_ancilla_idx = 0
+    for i in range(len(statevector)):
+        little_endian_bits = format(i, f'0{qubits}b')
+        big_endian_bits = little_endian_bits
+        if all(big_endian_bits[j] == '0' for j in range(qubits) if j != non_ancilla_idx):
+            if big_endian_bits[non_ancilla_idx] == '0':
+                amp0 += statevector[i]
+            else:
+                amp1 += statevector[i]
+    norm = np.sqrt(abs(amp0)**2 + abs(amp1)**2)
+    if norm == 0:
+        return np.array([1, 0])
+    return np.array([amp0, amp1]) / norm  
 
 if __name__ == "__main__":
     def sliqsim_fitness(file = 'final_circuit.qasm'):
@@ -18,9 +42,10 @@ if __name__ == "__main__":
             """
             amp0 = 0j
             amp1 = 0j
+            non_ancilla_idx = 0
             for i in range(len(statevector)):
                 little_endian_bits = format(i, f'0{qubits}b')
-                big_endian_bits = little_endian_bits[::-1]
+                big_endian_bits = little_endian_bits
                 if all(big_endian_bits[j] == '0' for j in range(qubits) if j != non_ancilla_idx):
                     if big_endian_bits[non_ancilla_idx] == '0':
                         amp0 += statevector[i]
@@ -101,12 +126,22 @@ if __name__ == "__main__":
                         
         return dist
 
-    #def draw_circuit(file):
-    #    circuit = QuantumCircuit.from_qasm_file(file)
-    #    fig = circuit.draw(output='mpl')
-    #    fig.savefig('circuit.png')
+    def draw_circuit(file):
+        circuit = QuantumCircuit.from_qasm_file(file)
+        fig = circuit.draw(output='mpl')
+        fig.savefig('circuit.png')
 
     def test():
+        def cleanup_sliqsim_artifacts():
+            """Clean up any artifacts that SliQSim might leave behind"""
+            artifacts = ['debug.txt', 'debug.log', 'temp.txt', 'temp.qasm']
+            for artifact in artifacts:
+                if os.path.exists(artifact):
+                    try:
+                        os.remove(artifact)
+                    except:
+                        pass
+        
         def extract_non_ancilla_qubit_state_fast(statevector, qubits):
             # assume non-ancilla is always qubits-1,
             # that means that we want entries 001, 000 for 3 qubits, 0000 and 0001 for 4 qubits etc.
@@ -116,9 +151,6 @@ if __name__ == "__main__":
             if norm == 0:
                 return np.array([1, 0])
             return np.array([amp0, amp1]) / norm  
-
-        basis_states = ['00', '01', '0+', '0-']
-
         # (5I + 2jZ) / sqrt(29) -- tmp2.qasm
         #expected_states = [
         #    np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1]),
@@ -152,24 +184,29 @@ if __name__ == "__main__":
         #]
         
         # (3I + 2jZ)/sqrt(13) -- tmp6.qasm
-        expected_states = [
-            np.array([1, 0]) * ((3+2j)/np.sqrt(13)) + np.array([0, 1]) * 0,
-            np.array([1, 0]) * 0 + np.array([0, 1]) * ((3-2j)/np.sqrt(13)),
-            np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((3-2j)/np.sqrt(26)),
-            np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((-3+2j)/np.sqrt(26)),
-        ]        
+        #expected_states = [
+        #    np.array([1, 0]) * ((3+2j)/np.sqrt(13)) + np.array([0, 1]) * 0,
+        #    np.array([1, 0]) * 0 + np.array([0, 1]) * ((3-2j)/np.sqrt(13)),
+        #    np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((3-2j)/np.sqrt(26)),
+        #    np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((-3+2j)/np.sqrt(26)),
+        #]        
         
         # (4I + jZ)/sqrt(17) -- tmp7.qasm
-        #expected_states = [
-        #    np.array([1, 0]) * ((4+1j)/np.sqrt(17)) + np.array([0, 1]) * 0,
-        #    np.array([1, 0]) * 0 + np.array([0, 1]) * ((4-1j)/np.sqrt(17)),
-        #    np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((4-1j)/np.sqrt(34)),
-        #    np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((-4+1j)/np.sqrt(34)),
-        #]
+        expected_states = [
+            np.array([1, 0]) * ((4+1j)/np.sqrt(17)) + np.array([0, 1]) * 0,
+            np.array([1, 0]) * 0 + np.array([0, 1]) * ((4-1j)/np.sqrt(17)),
+            np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((4-1j)/np.sqrt(34)),
+            np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((-4+1j)/np.sqrt(34)),
+        ]
 
         distances = []
+        basis_states = ['00', '01', '0+', '0-']
         for i, basis_state in enumerate(basis_states):
-            res = subprocess.run(['./SliQSim', '--sim_qasm', '../reference_rus_circuits/3i+2jz.qasm', '--type', '1', '--basis_state', basis_state], capture_output=True)
+            # Clean up any potential artifacts from previous runs
+            cleanup_sliqsim_artifacts()
+            
+            res = subprocess.run(['./SliQSim', '--sim_qasm', 'final_circuit.qasm', '--type', '1', '--basis_state', basis_state], capture_output=True)
+            statevector = []
             res_str = res.stdout.decode('utf-8')
             start = res_str.find('[')
             end = res_str.find(']')
@@ -177,16 +214,17 @@ if __name__ == "__main__":
             entries = [x.strip() for x in vector_str.split(',')]
             statevector = [complex(e.replace('i', 'j')) for e in entries]
             print(f"statevector for {basis_state}: {statevector}")
-            statevector = extract_non_ancilla_qubit_state_fast(statevector, 2)
+            statevector = extract_non_ancilla_qubit_state(statevector, 0, 2)
             print(f"statevector after projection: {statevector}")
             distances.append(np.linalg.norm(statevector - expected_states[i]))
             fidelity = 1.0 - qml.math.fidelity_statevector(statevector, expected_states[i])
             print(f"Fidelity for {basis_state}: {fidelity}")
+                        
         average_distance = sum(distances) / len(distances)
         print(f"Average distance: {average_distance}")
         print(f"Distances: {distances}")
 
-    #draw_circuit('../reference_rus_circuits/3i+2jz.qasm')
+    #draw_circuit('../reference_rus_circuits/5i+2jz.qasm')
     #input()
 
     test()

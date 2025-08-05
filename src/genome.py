@@ -37,8 +37,8 @@ class Genome:
 
     def mutate_gene(self, gene: Gene, logger : Logger) -> None:
         prob_change_gate = 0.4
-        prob_change_indice = 0.2
-        prob_change_skips = 0.3
+        prob_change_indice = 0.1
+        prob_change_skips = 0.4
         prob_swap_operations = 0.1
         total_prob = prob_change_gate + prob_change_indice + prob_change_skips + prob_swap_operations
         assert (total_prob - 1) < 1e-6
