@@ -4,7 +4,6 @@ from qiskit import QuantumCircuit
 import evolution as evo
 import numpy as np
 import subprocess
-import pennylane as qml
 import sys
 import matplotlib.pyplot as plt
 import time
@@ -18,19 +17,20 @@ def extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, qubits):
     """
     amp0 = 0j
     amp1 = 0j
-    non_ancilla_idx = 0
     for i in range(len(statevector)):
         little_endian_bits = format(i, f'0{qubits}b')
-        big_endian_bits = little_endian_bits
+        big_endian_bits = little_endian_bits[::-1]
         if all(big_endian_bits[j] == '0' for j in range(qubits) if j != non_ancilla_idx):
             if big_endian_bits[non_ancilla_idx] == '0':
                 amp0 += statevector[i]
             else:
                 amp1 += statevector[i]
     norm = np.sqrt(abs(amp0)**2 + abs(amp1)**2)
+
+    success_probability = abs(amp0)**2 + abs(amp1)**2
     if norm == 0:
-        return np.array([1, 0])
-    return np.array([amp0, amp1]) / norm  
+        return np.array([1, 0]), 0
+    return np.array([amp0, amp1]) / norm, success_probability
 
 if __name__ == "__main__":
     def sliqsim_fitness(file = 'final_circuit.qasm'):
@@ -68,7 +68,7 @@ if __name__ == "__main__":
                
                
         def fidelity(vec1, vec2):
-            return np.abs(1.0 - qml.math.fidelity_statevector(vec1, vec2))
+            return np.abs(1.0 - (np.pow(np.abs(np.vdot(vec1, vec2)), 2)))
         
         def dist(vec1, vec2):
             return np.linalg.norm(vec1 - vec2)
@@ -152,6 +152,53 @@ if __name__ == "__main__":
                 return np.array([1, 0])
             return np.array([amp0, amp1]) / norm  
 
+        # (5I + 2jZ) / sqrt(29) -- tmp2.qasm
+        #expected_states = [
+        #    np.array([1, 0]) * ((5 + 2j)/np.sqrt(29)) + 0 * np.array([0, 1]),
+        #    np.array([1, 0]) * 0 + np.array([0, 1]) * (5 - 2j)/np.sqrt(29),
+        #    np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((5-2j)/np.sqrt(58)), # state +
+        #    np.array([1, 0]) * ((5+2j)/np.sqrt(58)) + np.array([0, 1]) * ((-5+2j)/np.sqrt(58)), # state -
+        #]
+
+        # (2X + sqrt(2)*Y + Z) / sqrt(7) -- tmp4.qasm
+        #expected_states = [
+        #    np.array([1, 0]) / np.sqrt(7) + ((np.sqrt(2) * 1j + 2)/np.sqrt(7)) * np.array([0, 1]),
+        #    np.array([1, 0]) * ((2 - np.sqrt(2) * 1j)/np.sqrt(7)) + np.array([0, 1]) * (-1)/np.sqrt(7),
+        #    np.array([1, 0]) * ((3 - np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(14)),
+        #    np.array([1, 0]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(14)) + np.array([0, 1]) * ((3 + np.sqrt(2) * 1j)/np.sqrt(14)),
+        #]
+        
+        # (I + sqrt(2)jX)/sqrt(3) -- tmp3.qasm
+        #expected_states = [
+        #    np.array([1, 0]) / np.sqrt(3) + 1j * np.sqrt(2) * np.array([0, 1]) / np.sqrt(3),
+        #    np.array([1, 0]) * ((np.sqrt(2) * 1j)/np.sqrt(3)) + np.array([0, 1]) * (1/np.sqrt(3)),
+        #    np.array([1, 0]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((1 + np.sqrt(2) * 1j)/np.sqrt(6)),
+        #    np.array([1, 0]) * ((1 - np.sqrt(2) * 1j)/np.sqrt(6)) + np.array([0, 1]) * ((-1 + np.sqrt(2) * 1j)/np.sqrt(6)),
+        #]
+        
+        # (I + 2jZ)/sqrt(5) -- tmp5.qasm
+        #expected_states = [
+        #    np.array([1, 0]) * ((1+2j)/np.sqrt(5)) + np.array([0, 1]) * 0,
+        #    np.array([1, 0]) * 0 + np.array([0, 1]) * ((1-2j)/np.sqrt(5)),
+        #    np.array([1, 0]) * ((1+2j)/np.sqrt(10)) + np.array([0, 1]) * ((1-2j)/np.sqrt(10)),
+        #    np.array([1, 0]) * ((1+2j)/np.sqrt(10)) + np.array([0, 1]) * ((-1+2j)/np.sqrt(10)),
+        #]
+        
+        # (3I + 2jZ)/sqrt(13) -- tmp6.qasm
+        expected_states = [
+            np.array([1, 0]) * ((3+2j)/np.sqrt(13)) + np.array([0, 1]) * 0,
+            np.array([1, 0]) * 0 + np.array([0, 1]) * ((3-2j)/np.sqrt(13)),
+            np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((3-2j)/np.sqrt(26)),
+            np.array([1, 0]) * ((3+2j)/np.sqrt(26)) + np.array([0, 1]) * ((-3+2j)/np.sqrt(26)),
+        ]        
+        
+        # (4I + jZ)/sqrt(17) -- tmp7.qasm
+        #expected_states = [
+        #    np.array([1, 0]) * ((4+1j)/np.sqrt(17)) + np.array([0, 1]) * 0,
+        #    np.array([1, 0]) * 0 + np.array([0, 1]) * ((4-1j)/np.sqrt(17)),
+        #    np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((4-1j)/np.sqrt(34)),
+        #    np.array([1, 0]) * ((4+1j)/np.sqrt(34)) + np.array([0, 1]) * ((-4+1j)/np.sqrt(34)),
+        #]
 
         distances = []
         basis_states = ['00', '01', '0+', '0-']
@@ -168,10 +215,11 @@ if __name__ == "__main__":
             entries = [x.strip() for x in vector_str.split(',')]
             statevector = [complex(e.replace('i', 'j')) for e in entries]
             print(f"statevector for {basis_state}: {statevector}")
-            statevector = extract_non_ancilla_qubit_state(statevector, 0, 5)
+            statevector = extract_non_ancilla_qubit_state_fast(statevector, 2)
+            #print(f"success probability: {success_probability}")
             print(f"statevector after projection: {statevector}")
             distances.append(np.linalg.norm(statevector - expected_states[i]))
-            fidelity = 1.0 - qml.math.fidelity_statevector(statevector, expected_states[i])
+            fidelity = 1.0 - (np.pow(np.abs(np.vdot(statevector, expected_states[i])), 2))
             print(f"Fidelity for {basis_state}: {fidelity}")
                         
         average_distance = sum(distances) / len(distances)

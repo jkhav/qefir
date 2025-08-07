@@ -23,7 +23,8 @@ class Genome:
     
     def generate_random_individual(self) -> "Genome": 
         for i in range(self.operations):
-            max_skips = self.operations - i - 1
+            #max_skips = self.operations - i - 1
+            max_skips = 10
             gene = Gene()
             gene.random(gate_set=self.gate_set, max_qubits_needed=self.max_qubits_needed, max_qubit=self.qubits, max_skips=max_skips)
             self.genes.append(gene)
@@ -63,7 +64,9 @@ class Genome:
                     logger.log_useless_mutation()
                 gene.parts[index_to_change] = chosen_index
         elif prob < prob_change_gate + prob_change_indice + prob_change_skips:
-            max_skips = self.operations - self.genes.index(gene) - 1
+            #max_skips = self.operations - self.genes.index(gene) - 1
+            max_skips = 10
+
             skips = random.randint(0, max_skips)
             if skips == gene.skips:
                 logger.log_useless_mutation()

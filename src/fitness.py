@@ -23,12 +23,12 @@ class Fitness:
             if name == 'default_fitness_function':
                 self.function = self.default_fitness_function
                 
-    def evaluate(self, individual : Genome, statevectors : list[np.array], logger : Logger = None) -> float:
+    def evaluate(self, individual : Genome, logger : Logger = None) -> float:
         """
         Evaluate the fitness of an individual genome
         using the fitness function specified for the fitness object
         """
-        return self.function(individual, statevectors, logger)
+        return self.function(individual, logger)
     
     def default_fitness_function(self, individual : Genome) -> float:
         """

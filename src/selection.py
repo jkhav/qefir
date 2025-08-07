@@ -30,7 +30,6 @@ class StochasticUniversalSampling(Selection):
             sum += individual.fitness
         start = random.uniform(0, sum / len(ordered_population))
         pointers = [start + i * (sum / len(ordered_population)) for i in range(k)]
-        
         selected_individuals = []
         for pointer in pointers:
             i = 0        

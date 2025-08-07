@@ -6,13 +6,13 @@ import time
 from logger import Logger
 from typing import List
 from gate import Gate
-from multithread_fitness import MultiThreadedFitnessEvaluator
+from fitness import Fitness
 
 class Population:
-    def __init__(self, fitness_evaluator : MultiThreadedFitnessEvaluator) -> None:
+    def __init__(self, fitness_function : Fitness) -> None:
         self.individuals = [] # genomes in the population
         self.fittest = None
-        self.fitness_evaluator = fitness_evaluator
+        self.fitness_function = fitness_function
 
     def add_individual(self, individual: Genome) -> None:
         """
@@ -48,4 +48,11 @@ class Population:
         
         return self
 
-
+    def evaluate_fitness(self, logger : Logger = None) -> Genome:
+        self.fittest = None
+        for individual in self.individuals:
+            individual.fitness = self.fitness_function.evaluate(individual, logger)
+            if self.fittest is None or individual.fitness < self.fittest.fitness:
+                self.fittest = individual
+            logger.log(f"Evaluated fitness {individual.fitness} for individual {individual}")
+        return self.fittest
