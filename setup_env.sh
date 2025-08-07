@@ -1,4 +1,5 @@
 #!/bin/bash
+# Usage source activate_env.sh
 
 git pull
 git submodule update --remote
