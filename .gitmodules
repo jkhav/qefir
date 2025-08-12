@@ -1,3 +1,7 @@
 [submodule "SliQSim"]
 	path = SliQSim
-	url = git@github.com:deaddlyyy/SliQSim.git
+	url = https://github.com/deaddlyyy/SliQSim.git
+
+[submodule "DDSim"]
+	path = ddsim
+	url = https://github.com/deaddlyyy/ddsim.git
