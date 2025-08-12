@@ -1,7 +1,7 @@
 from typing import List
 from fitness import Fitness
 from population import Population
-from gate import Gate
+from gate import Gate, GateSet
 from logger import Logger
 import copy
 import selection
@@ -13,12 +13,35 @@ from multithread_fitness import MultiThreadedFitnessEvaluator
 import time
 
 class EvolutionManager:
+    """
+        Class representing the evolution framework
+        First, initialize() has to be called to fill in needed information
+        needed for the evolution itself
+
+        Specifications to be used in initialize():
+            - gate set used in the genomes
+            - fitness function (either name from the default functions or a custom callable)
+            - max number of populations, max number of operations in a genome
+            - mutation rate of active genes and rate of inactive genes
+            - crossover rate (if not met, the fittest individual is mutated)
+            - allowed error for the fitness function
+            - max number of qubits in a genome
+            - population size
+            - selection method (given name, with needed parameters e.g. Tournament selection - tournament size)
+            - crossover method (given name)
+
+        After initialization, call evolve() to start the evolution
+        The fittest individual (Genome) is returned
+        All information about the evolution is in logs/
+    """
+
+
     def __init__(self):
         self.logger = Logger()
     
     def initialize(
                     self, 
-                    gate_set : List[Gate] = [],
+                    gate_set : GateSet = None,
                     max_populations : int = 1000, 
                     fitness_function : Fitness = None,
                     max_operations : int = 100,
@@ -27,34 +50,60 @@ class EvolutionManager:
                     max_qubits : int = 2,
                     population_size: int = 10,
                     crossover_rate : float = 0.6,
-                    allowed_err : float = 0.0
+                    allowed_err : float = 0.0,
+                    crossover_method : str = 'OnePointCrossover',
+                    selection_method : str = 'TournamentSelection',
+                    tournament_size : int = 2,
                    ) -> None:
+        """
+            Initialize the evolution manager with all provided information about the evolution
+        """
         self.gate_set = gate_set
-        self.gate_set += [Gate(name='SKIP', qubits=0)]
+        self.gate_set.add_gate(Gate(name='SKIP', qubits=0))
         self.max_populations = max_populations
         self.fitness_function = fitness_function
-        self.population = Population(self.fitness_function)
+        self.fitness_evaluator = MultiThreadedFitnessEvaluator(fitness_function=fitness_function)
+        self.population = Population()
         self.fittest = None
         self.curr_population = 0
         self.active_mut_rate = active_mut_rate
         self.inactive_mut_rate = inactive_mut_rate
         self.max_operations = max_operations
         self.max_qubits = max_qubits
-        self.max_qubits_needed = max(gate_set, key=lambda g: g.qubits).qubits
+        self.max_qubits_needed = max(self.gate_set.get_gates(), key=lambda g: g.qubits).qubits
         self.population_size = population_size
-        self.selection = selection.TournamentSelection(tournament_size=2)
-        self.crossover = crossover.OnePointCrossover()
+        if crossover_method == 'OnePointCrossover':
+            self.crossover = crossover.OnePointCrossover()
+        # more crossover methods to be added
+
+        if selection_method == 'TournamentSelection':
+            self.selection = selection.TournamentSelection(tournament_size=tournament_size)
+        elif selection_method == 'StochasticUniversalSampling':
+            self.selection = selection.StochasticUniversalSampling()
+        # more selection methods to be added
+
         self.crossover_rate = crossover_rate
         self.allowed_err = allowed_err
 
     def population_count(self) -> int:
+        """
+            Return the current population count
+        """
         return self.curr_population
     
     def increment_population(self) -> None:
+        """
+            Increment the current population count
+        """
         self.curr_population += 1
         
     def new_population_step(self) -> Population:
-        new_population = Population(self.fitness_function)
+        """
+            Proceed to the next generation - create new population,
+            add the fittest individual (elitism), create new individuals
+            by the selection method, crossover, mutation and add them to the new population
+        """
+        new_population = Population()
         
         # allow elitism for the fittest individual
         new_population.add_individual(self.fittest)
@@ -64,28 +113,27 @@ class EvolutionManager:
             # if the crossover rate is met, do the crossover
             # otherwise, like in CGP, mutate the fittest individual
             prob = random.uniform(0, 1)
-            selection = TournamentSelection(tournament_size=2)
             if prob < self.crossover_rate:
                 selection_start = time.time()
-                par1 = selection.select(self.population)
-                par2 = selection.select(self.population)
+                parents = self.selection.select(self.population, k=2)
+                par1 = parents[0]
+                par2 = parents[1]
                 selection_end = time.time()
                 self.logger.log_selection(selection_end - selection_start)
+
                 crossover_start = time.time()
                 child = self.crossover.crossover(par1, par2)
                 crossover_end = time.time()
                 self.logger.log_crossover(crossover_end - crossover_start)
-                #self.logger.log(type='DEBUG', message=f"Selected parent1 {par1}")
-                #self.logger.log(type='DEBUG', message=f"Selected parent2 {par2}")
-               # self.logger.log(type='DEBUG', message=f"Created child before mutation {child}")
+
                 child.mutate(logger=self.logger, active_mut_rate=self.active_mut_rate, inactive_mut_rate=self.inactive_mut_rate)
                 new_population.add_individual(child)
             else:
                 child = self.fittest.copy()
                 child.mutate(logger=self.logger, active_mut_rate=self.active_mut_rate, inactive_mut_rate=self.inactive_mut_rate)
                 new_population.add_individual(child)
-            #self.logger.log(type='DEBUG', message=f"Created child {child}")
-        self.fittest = new_population.evaluate_fitness(logger=self.logger)
+
+        self.fittest = self.fitness_evaluator.evaluate(population=new_population, logger=self.logger)
         print(f"Population {self.curr_population + 1} evaluated. Fittest fitness: {self.fittest.fitness}")
         self.logger.log(type='INFO', message=f"Population {self.curr_population + 1} evaluated. Fittest fitness: {self.fittest.fitness}")
         self.logger.log(type='DEBUG', message=f"Fittest individual: {self.fittest}")
@@ -95,9 +143,12 @@ class EvolutionManager:
 
 
     def evolve(self) -> Genome:
+        """
+            Evolve a genome representing a quantum circuit based on provided fitness function
+        """
         self.logger.log(type='INFO', message=f"Starting evolution")
     
-        self.population = Population(self.fitness_function).generate_random_population( 
+        self.population = Population().generate_random_population( 
                                                                     gate_set=self.gate_set,
                                                                     max_operations=self.max_operations,
                                                                     max_qubits=self.max_qubits,
@@ -108,10 +159,10 @@ class EvolutionManager:
         self.logger.log(type='INFO', message=f"Initial population generated with {len(self.population.individuals)} individuals")
         
         # evaluate the population's fitness
-        self.fittest = self.population.evaluate_fitness(logger=self.logger)
+        self.fittest = self.fitness_evaluator.evaluate(population=self.population, logger=self.logger)
         self.logger.log(type='INFO', message=f"Evaluated initial population fitness")
 
-        # while solution not found or limit not reached
+        # while solution not found or limit not reached 
         while self.fittest.fitness > (0.0 + self.allowed_err) and self.population_count() < self.max_populations-1:
             self.increment_population()
             self.population = self.new_population_step()

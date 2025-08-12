@@ -5,10 +5,10 @@ import random
 from typing import List
 import time
 from logger import Logger
-from gate import Gate
+from gate import Gate, GateSet
 
 class Genome:
-    def __init__(self, gate_set : List[Gate], qubits : int, operations : int, max_qubits_needed : int) -> None:
+    def __init__(self, gate_set : GateSet, qubits : int, operations : int, max_qubits_needed : int) -> None:
         self.genes = []
         self.fitness = math.inf
         self.gate_set = gate_set
@@ -26,7 +26,7 @@ class Genome:
             #max_skips = self.operations - i - 1
             max_skips = 10
             gene = Gene()
-            gene.random(gate_set=self.gate_set, max_qubits_needed=self.max_qubits_needed, max_qubit=self.qubits, max_skips=max_skips)
+            gene.random(gate_set=self.gate_set.get_gates(), max_qubits_needed=self.max_qubits_needed, max_qubit=self.qubits, max_skips=max_skips)
             self.genes.append(gene)
         return self
     
@@ -46,7 +46,7 @@ class Genome:
         
         prob = random.uniform(0, 1)
         if prob < prob_change_gate:
-            chosen_gate = random.choice(self.gate_set)
+            chosen_gate = random.choice(self.gate_set.get_gates())
             if chosen_gate.name == gene.gate:
                 logger.log_useless_mutation()
             gene.gate = chosen_gate.name
@@ -131,7 +131,7 @@ class Genome:
                 i += gene.skips + 1
                 continue
             else:
-                gate = next((g for g in self.gate_set if g.name == gene.gate), None)
+                gate = next((g for g in self.gate_set.get_gates() if g.name == gene.gate), None)
                 j = 0
                 qasm_str += f"{gate.name} "
                 while j < gate.qubits:

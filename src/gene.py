@@ -1,7 +1,7 @@
 import random
 import numpy
 from typing import List
-from gate import Gate
+from gate import Gate, GateSet
 import copy
 
 class Gene:

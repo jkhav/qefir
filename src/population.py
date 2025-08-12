@@ -9,10 +9,9 @@ from gate import Gate
 from fitness import Fitness
 
 class Population:
-    def __init__(self, fitness_function : Fitness) -> None:
+    def __init__(self) -> None:
         self.individuals = [] # genomes in the population
         self.fittest = None
-        self.fitness_function = fitness_function
 
     def add_individual(self, individual: Genome) -> None:
         """
@@ -48,11 +47,12 @@ class Population:
         
         return self
 
-    def evaluate_fitness(self, logger : Logger = None) -> Genome:
-        self.fittest = None
-        for individual in self.individuals:
-            individual.fitness = self.fitness_function.evaluate(individual, logger)
-            if self.fittest is None or individual.fitness < self.fittest.fitness:
-                self.fittest = individual
-            logger.log(f"Evaluated fitness {individual.fitness} for individual {individual}")
-        return self.fittest
+    # not needed when using MultiThreadedFitnessEvaluator instead of direct Fitness function
+    #def evaluate_fitness(self, logger : Logger = None) -> Genome:
+    #    self.fittest = None
+    #    for individual in self.individuals:
+    #        individual.fitness = self.fitness_function.evaluate(individual, logger)
+    #        if self.fittest is None or individual.fitness < self.fittest.fitness:
+    #            self.fittest = individual
+    #        logger.log(f"Evaluated fitness {individual.fitness} for individual {individual}")
+    #    return self.fittest

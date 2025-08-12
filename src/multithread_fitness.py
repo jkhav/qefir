@@ -11,10 +11,15 @@ class MultiThreadedFitnessEvaluator:
     def __init__(self, fitness_function : Fitness) -> None:
         """
             Initialize fitness function evaluator,
-            boot up the simulator SliQSim
+            boot up the simulator in persistent mode waiting
+            for jobs to arrive into a queue (evaluation done in a thread pool)
         """
         self.fitness_function = fitness_function
-        self.simulator = subprocess.Popen(['./SliQSim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.simulator_name = self.fitness_function.get_name()
+        if self.simulator_name == 'sliqsim':
+            self.simulator = subprocess.Popen(['./SliQSim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        elif self.simulator_name == 'ddsim':
+            self.simulator = subprocess.Popen(['./ddsim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         self.genome_map = {}
         self.lowest_id = 0
         self.circuits_sent = 0
@@ -50,42 +55,59 @@ class MultiThreadedFitnessEvaluator:
     def get_genome(self, id : int) -> Genome:
         return self.genome_map[id]
 
-    def parse_statevector(self, statevector_str : str) -> np.array:
+    @staticmethod
+    def parse_statevector(self, config : str, basis_state : str) -> np.array:
+        start = '<statevector_' + basis_state + '>'
+        end = '</statevector_' + basis_state + '>'
+        statevector_start = config.find(start) + len(start)
+        statevector_end = config.find(end)
+        statevector_str = config[statevector_start+1:statevector_end-1]
+
         statevector = []
         for element in statevector_str.split(','):
             element = complex(element)
             statevector.append(element)
         return np.array(statevector)
 
-    def parse_config(self, config : str) -> tuple[int, list[np.array]]:
+    @staticmethod
+    def parse_id(self, config : str) -> int:
+        id_start = config.find('<id>') + len('<id>')
+        id_end = config.find('</id>')
+        return int(config[id_start:id_end])
+
+    @staticmethod
+    def parse_matrix(self, config : str) -> np.array:
+        matrix_start = config.find('<matrix>') + len('<matrix>')
+        matrix_end = config.find('</matrix>')
+        matrix = np.array(config[matrix_start+1:matrix_end-1].split(','))
+        return matrix
+
+    def parse_sliqsim_config(self, config : str) -> tuple[int, list[np.array]]:
         """
             Parse the config from the simulator
             Return the ID, statevector for basis state |0>, statevector for basis state |1> on the non-ancilla qubit
             all ancilla qubits are in the |0> state
         """
-        id_start = config.find('<id>') + len('<id>')
-        id_end = config.find('</id>')
-        id = int(config[id_start:id_end])
+        id = self.parse_id(config)
 
-        statevector_0_start = config.find('<statevector_0>') + len('<statevector_0>')
-        statevector_0_end = config.find('</statevector_0>')
-        statevector_0 = self.parse_statevector(config[statevector_0_start+1:statevector_0_end-1])
-
-
-        statevector_1_start = config.find('<statevector_1>') + len('<statevector_1>')
-        statevector_1_end = config.find('</statevector_1>')
-        statevector_1 = self.parse_statevector(config[statevector_1_start+1:statevector_1_end-1])
-
-        statevector_plus_start = config.find('<statevector_plus>') + len('<statevector_plus>')
-        statevector_plus_end = config.find('</statevector_plus>')
-        statevector_plus = self.parse_statevector(config[statevector_plus_start+1:statevector_plus_end-1])
-
-        statevector_minus_start = config.find('<statevector_minus>') + len('<statevector_minus>')
-        statevector_minus_end = config.find('</statevector_minus>')
-        statevector_minus = self.parse_statevector(config[statevector_minus_start+1:statevector_minus_end-1])
+        statevector_0 = self.parse_statevector(config, '0')
+        statevector_1 = self.parse_statevector(config, '1')
+        statevector_plus = self.parse_statevector(config, 'plus')
+        statevector_minus = self.parse_statevector(config, 'minus')
 
         return id, [statevector_0, statevector_1, statevector_plus, statevector_minus]
 
+    def parse_ddsim_config(self, config : str) -> tuple[int, np.array]:
+        """
+            Parse the config from the simulator
+            Return the ID, matrix
+        """
+        id = self.parse_id(config)
+        matrix_start = config.find('<matrix>') + len('<matrix>')
+        matrix_end = config.find('</matrix>')
+        matrix = np.array(config[matrix_start+1:matrix_end-1].split(','))
+        return id, matrix
+        
     def read_config(self) -> str:
         config = ''
         while '</xml>' not in config:
@@ -107,12 +129,11 @@ class MultiThreadedFitnessEvaluator:
         ids_found = 0
         while(ids_found < self.circuits_sent):
             config = self.read_config()
-            id, statevectors = self.parse_config(config)
+            id, statevectors = self.parse_sliqsim_config(config)
             genome = self.get_genome(id)
             genome.fitness = self.fitness_function.evaluate(genome, statevectors, logger)
             if self.fittest is None or genome.fitness < self.fittest.fitness:
                 self.fittest = genome
-            #logger.log(type="DEBUG", message=f"Evaluated fitness for individual {genome} with fitness {genome.fitness}")
             ids_found += 1
         return self.fittest
 
@@ -131,9 +152,15 @@ class MultiThreadedFitnessEvaluator:
         fittest = None
         while(received < len(batch)):
             config = self.read_config()
-            id, statevectors = self.parse_config(config)
-            genome = self.get_genome(id)
-            genome.fitness = self.fitness_function.evaluate(genome, statevectors, logger)
+            if self.simulator_name == 'sliqsim':
+                id, statevectors = self.parse_sliqsim_config(config)
+                genome = self.get_genome(id)
+                genome.fitness = self.fitness_function.evaluate(individual=genome, statevectors=statevectors, logger=logger)
+            elif self.simulator_name == 'ddsim':
+                id, matrix = self.parse_ddsim_config(config)
+                genome = self.get_genome(id)
+                genome.fitness = self.fitness_function.evaluate(individual=genome, matrix=matrix, logger=logger)
+
             if fittest is None or genome.fitness < fittest.fitness:
                 fittest = genome
             received += 1
@@ -157,8 +184,6 @@ class MultiThreadedFitnessEvaluator:
             batch_fittest = self.read_batch(batch, logger)
             if fittest is None or batch_fittest.fitness < fittest.fitness:
                 fittest = batch_fittest
-        # after passing all genomes to be evaluated, wait for all the results
-        #fittest = self.read_results(logger)
         time_end = time.time()
         logger.log_fitness_call(time_end - time_start)
 
