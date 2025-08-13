@@ -2,7 +2,6 @@ import random
 from genome import Genome
 from logger import Logger
 import numpy as np
-import subprocess
 import quantum_gates as qg
 
 class Fitness:

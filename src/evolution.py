@@ -4,10 +4,9 @@ from population import Population
 from gate import Gate, GateSet
 from logger import Logger
 import copy
-import selection
-import crossover
 import random
 from genome import Genome
+from crossover import OnePointCrossover
 from selection import StochasticUniversalSampling, TournamentSelection
 from multithread_fitness import MultiThreadedFitnessEvaluator
 import time
@@ -73,13 +72,13 @@ class EvolutionManager:
         self.max_qubits_needed = max(self.gate_set.get_gates(), key=lambda g: g.qubits).qubits
         self.population_size = population_size
         if crossover_method == 'OnePointCrossover':
-            self.crossover = crossover.OnePointCrossover()
+            self.crossover = OnePointCrossover()
         # more crossover methods to be added
 
         if selection_method == 'TournamentSelection':
-            self.selection = selection.TournamentSelection(tournament_size=tournament_size)
+            self.selection = TournamentSelection(tournament_size=tournament_size)
         elif selection_method == 'StochasticUniversalSampling':
-            self.selection = selection.StochasticUniversalSampling()
+            self.selection = StochasticUniversalSampling()
         # more selection methods to be added
 
         self.crossover_rate = crossover_rate

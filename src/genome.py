@@ -5,7 +5,7 @@ import random
 from typing import List
 import time
 from logger import Logger
-from gate import Gate, GateSet
+from gate import GateSet
 
 class Genome:
     def __init__(self, gate_set : GateSet, qubits : int, operations : int, max_qubits_needed : int) -> None:

@@ -1,13 +1,4 @@
-import sys
-import math
 import evolution as evo
-import numpy as np
-import subprocess
-import time
-from logger import Logger
-import quantum_gates as qg
-from genome import Genome
-from gate import Gate
 
 if __name__ == "__main__":
     gate_set = evo.GateSet(preset='default')

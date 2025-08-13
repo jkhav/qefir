@@ -2,7 +2,6 @@ from typing import List
 from population import Population
 from genome import Genome
 import random
-import numpy as np
 
 class Selection:
     """

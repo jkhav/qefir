@@ -11,3 +11,5 @@ src/SliQSim
 src/tmp_circuit.qasm
 src/final_circuit.qasm
 src/mqt-ddsim-simple
+src/debug.py
+src/ddsim

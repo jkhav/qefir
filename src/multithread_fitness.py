@@ -1,6 +1,5 @@
 from genome import Genome
 from fitness import Fitness
-import multiprocessing
 import subprocess
 import fcntl
 from logger import Logger
