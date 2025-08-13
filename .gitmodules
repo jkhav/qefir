@@ -2,7 +2,3 @@
 	path = SliQSim
 	url = https://github.com/deaddlyyy/SliQSim.git
 	branch = master
-[submodule "ddsim"]
-	path = ddsim
-	url = https://github.com/deaddlyyy/ddsim.git
-	branch = main
