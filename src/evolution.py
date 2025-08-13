@@ -62,7 +62,7 @@ class EvolutionManager:
         self.gate_set.add_gate(Gate(name='SKIP', qubits=0))
         self.max_populations = max_populations
         self.fitness_function = fitness_function
-        self.fitness_evaluator = MultiThreadedFitnessEvaluator(fitness_function=fitness_function)
+        self.fitness_evaluator = MultiThreadedFitnessEvaluator(fitness_function=fitness_function, logger=self.logger)
         self.population = Population()
         self.fittest = None
         self.curr_population = 0
@@ -113,14 +113,13 @@ class EvolutionManager:
             # if the crossover rate is met, do the crossover
             # otherwise, like in CGP, mutate the fittest individual
             prob = random.uniform(0, 1)
+            selection_start = time.time()
+            parents = self.selection.select(self.population, k=2)
+            par1 = parents[0]
+            par2 = parents[1]
+            selection_end = time.time()
+            self.logger.log_selection(selection_end - selection_start)
             if prob < self.crossover_rate:
-                selection_start = time.time()
-                parents = self.selection.select(self.population, k=2)
-                par1 = parents[0]
-                par2 = parents[1]
-                selection_end = time.time()
-                self.logger.log_selection(selection_end - selection_start)
-
                 crossover_start = time.time()
                 child = self.crossover.crossover(par1, par2)
                 crossover_end = time.time()
@@ -129,11 +128,15 @@ class EvolutionManager:
                 child.mutate(logger=self.logger, active_mut_rate=self.active_mut_rate, inactive_mut_rate=self.inactive_mut_rate)
                 new_population.add_individual(child)
             else:
-                child = self.fittest.copy()
+                # mutate parent with better fitness
+                if par1.fitness < par2.fitness:
+                    child = par1.copy()
+                else:
+                    child = par2.copy()
                 child.mutate(logger=self.logger, active_mut_rate=self.active_mut_rate, inactive_mut_rate=self.inactive_mut_rate)
                 new_population.add_individual(child)
 
-        self.fittest = self.fitness_evaluator.evaluate(population=new_population, logger=self.logger)
+        self.fittest = self.fitness_evaluator.evaluate(population=new_population)
         print(f"Population {self.curr_population + 1} evaluated. Fittest fitness: {self.fittest.fitness}")
         self.logger.log(type='INFO', message=f"Population {self.curr_population + 1} evaluated. Fittest fitness: {self.fittest.fitness}")
         self.logger.log(type='DEBUG', message=f"Fittest individual: {self.fittest}")
@@ -159,7 +162,7 @@ class EvolutionManager:
         self.logger.log(type='INFO', message=f"Initial population generated with {len(self.population.individuals)} individuals")
         
         # evaluate the population's fitness
-        self.fittest = self.fitness_evaluator.evaluate(population=self.population, logger=self.logger)
+        self.fittest = self.fitness_evaluator.evaluate(population=self.population)
         self.logger.log(type='INFO', message=f"Evaluated initial population fitness")
 
         # while solution not found or limit not reached 
@@ -174,5 +177,6 @@ class EvolutionManager:
         self.logger.log(type='DEBUG', message=f"Best individual: {best_individual}")
         self.logger.print_stats()
         self.logger.print_final_circuit(best_individual)
+        self.logger.move_based_on_final_fitness(best_individual.fitness)
         self.logger.close()
         return best_individual

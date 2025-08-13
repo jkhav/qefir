@@ -56,11 +56,11 @@ def reduce_matrix(matrix):
         if norm == 0:
             can_normalize = False
             return q1_matrix, can_normalize
-        q1_matrix[i] = [x / norm for x in q1_matrix[i]]
+        q1_matrix[i] /= norm
     return q1_matrix, can_normalize
 
 def test(filename):
-    res = subprocess.run(['../src/mqt-ddsim-simple', '--simulate_unitary', filename, '--pu'], capture_output=True)
+    res = subprocess.run(['../src/ddsim', '--simulate_unitary', filename, '--pu'], capture_output=True)
     res_str = res.stdout.decode('utf-8')
     matrix = parse_ddsim_output(res_str)
 
@@ -75,9 +75,14 @@ def test(filename):
     print(f"- Result * Adjoint(Result) should yield I:")
     print_matrix(product)
 
-    expected_matrix = (3 * qg.I + 2j * qg.Z) / np.sqrt(13)
+    expected_gate = (2 * qg.X + np.sqrt(2) * qg.Y + qg.Z) / np.sqrt(7)
+    #expected_gate = (qg.I + np.sqrt(2) * 1j * qg.X) / np.sqrt(3)
+    #expected_gate = (1 * qg.I + 2j * qg.Z) / np.sqrt(5)
+    #expected_gate = (3 * qg.I + 2j * qg.Z) / np.sqrt(13)
+    #expected_gate = (4 * qg.I + 1j * qg.Z) / np.sqrt(17)
+    #expected_gate = (5 * qg.I + 2j * qg.Z) / np.sqrt(29)
 
-    product = expected_matrix @ adjoint(reduced_matrix)
+    product = expected_gate @ adjoint(reduced_matrix)
     print(f"- Product of Expected @ Adjoint(Reduced):")
     print_matrix(product)
     trace = np.trace(product)
@@ -87,12 +92,13 @@ def test(filename):
     print(f"\t- Absolute value of trace should be around 2^n:\n\t\t{np.abs(trace)}")
     print(f"\t- Abs(trace) - 2^n should be 0:\n\t\t{np.abs(trace) - 2**n}")
     print()
-    print(f"- Distance of the two matrices:\n\t{np.linalg.norm((expected_matrix - reduced_matrix), 'fro')}")
+    print(f"- Distance of the two matrices:\n\t{np.linalg.norm((expected_gate - reduced_matrix), 'fro')}")
 
-if len(sys.argv) > 1:
-    file = sys.argv[1]
-    test(file)
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        file = sys.argv[1]
+        test(file)
 
-else:
-    file = '../src/final_circuit.qasm'
-    test(file)
+    else:
+        file = '../src/final_circuit.qasm'
+        test(file)

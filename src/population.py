@@ -42,7 +42,6 @@ class Population:
                                     population_size : int) -> "Population":
         for _ in range(population_size):
             individual = Genome(gate_set=gate_set, qubits=max_qubits, operations=max_operations, max_qubits_needed=max_qubits_needed).generate_random_individual()
-            print(f"Generated individual: {individual}")
             self.add_individual(individual)
         
         return self

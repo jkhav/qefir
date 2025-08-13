@@ -7,7 +7,7 @@ import copy
 class Gene:
     def __init__(self) -> None:
         self.gate = ''
-        self.parts = [] # List[int] qubit indices, first is target, rest are controls, size is fix by max_qubits_needed
+        self.parts = [] # List[int] qubit indices, last is target, rest are controls, size is fix by max_qubits_needed
         self.skips = 0
         self.active = True
         
@@ -15,7 +15,15 @@ class Gene:
         gate = random.choice(gate_set)
         self.gate = gate.name
         self.skips = random.randint(0, max_skips)
-        self.parts = random.sample(range(max_qubit), max_qubits_needed)
+
+        # RUS specific: if gate is cx or x, then parts[0] cant be an ancilla qubit (it can be only the non-ancilla)
+        # in this specific case, q1 is the non-ancilla qubit
+        # TODO case when there is more than 1 non-ancilla
+        if gate.name in ['cx', 'x']:
+            self.parts = random.sample(range(max_qubit-1), max_qubits_needed-1) + [max_qubit-1]
+        else:
+            self.parts = random.sample(range(max_qubit), max_qubits_needed)
+
         return gate
 
     def print_gene(self) -> None:

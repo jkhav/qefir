@@ -1,4 +1,5 @@
 import datetime
+import os
 
 class Logger:
     def __init__(self, filename='logs/evolution'):
@@ -19,7 +20,7 @@ class Logger:
     
     def log(self, type='MISC', message='default message'):
         """
-        Log a message to the log file with runtime since logger creation
+            Log a message to the log file with runtime since logger creation
         """
         runtime = datetime.datetime.now() - self.start_time
         self.file.write(f"[{type}] (runtime: {runtime}) {message}\n")
@@ -29,7 +30,7 @@ class Logger:
         
     def log_fitness_call(self, time_taken):
         """
-        Log a fitness function call with time taken
+            Log a fitness function call with time taken
         """
         self.fitness_calls += 1
         self.fitness_time += time_taken
@@ -56,7 +57,7 @@ class Logger:
     
     def print_stats(self):
         """
-        Print statistics about the evolution process
+            Print statistics about the evolution process
         """
         self.file.write("\n--- Evolution Statistics ---\n")
         self.file.write(f"Total fitness calls: {self.fitness_calls}\n")
@@ -74,8 +75,20 @@ class Logger:
         self.file.write(f"\n")
     def print_final_circuit(self, individual):
         """
-        Print the final circuit to the log file
+            Print the final circuit to the log file
         """
         self.file.write("\n--- Final Circuit ---\n")
-        self.file.write(individual.to_qasm())
+        qasm, _ = individual.to_qasm()
+        self.file.write(qasm)
         self.file.write(f"\n")
+
+    def move_based_on_final_fitness(self, fitness : float):
+        """
+            If the evolution was just a bit successful, move the log to the good_results/ directory
+        """
+        if fitness < 1e-3:
+            old_name = self.filename # logs/evolutiondatedatedate ---> logs/good_results/evolutiondatedatedate
+            new_name = old_name.replace('logs/', 'logs/good_results/')
+            os.rename(old_name, new_name)
+        else:
+            return

@@ -53,31 +53,36 @@ class Fitness:
         """
         return random.uniform(0, 1)
 
+    @staticmethod
+    def number_of_t_gates(individual : Genome) -> int:
+        count = 0
+        for gene in individual.genes:
+            if gene.gate == 't' or gene.gate == 'tdg':
+                count += 1
+        return count
+
+    @staticmethod
+    def gate_count(individual : Genome) -> int:
+        i = 0
+        count = 0
+        in_actives = True
+        inactives_end = 0
+        while i < len(individual.genes):
+            gene = individual.genes[i]
+            if i > inactives_end:
+                in_actives = True
+                inactives_end = 0
+        
+            if gene.gate == 'SKIP':
+                in_actives = False
+                inactives_end = i + gene.skips + 1
+            
+            if in_actives:
+                count += 1
+            i += 1
+        return count
+
     def ddsim_fitness(self, individual : Genome, matrix : np.array, logger : Logger) -> float:
-        def parse_ddsim_output(res_str):
-            """
-            Example:
-            [0.25-0.25j,0.25+0.25j,0.146447-0.853553j,0+0j,]
-            [0.25+0.25j,0.25-0.25j,0+0j,-0.146447+0.853553j,]
-            [0.853553-0.146447j,0+0j,-0.25+0.25j,-0.25-0.25j,]
-            [0+0j,-0.853553+0.146447j,-0.25-0.25j,-0.25+0.25j,]
-            """
-            matrix = []
-            for line in res_str.split('\n'):
-                if line.startswith('['):
-                    elements = [x.strip() for x in line.strip('[]').split(',') if x.strip()]
-                    row = []
-                    for elem in elements:
-                        try:
-                            row.append(complex(elem))
-                        except ValueError:
-                            row.append(0j)
-                    matrix.append(row)
-            return matrix
-
-        def trace(matrix):
-            return sum(matrix[i][i] for i in range(len(matrix)))
-
         def adjoint(matrix):
             return np.conj(np.transpose(matrix))
 
@@ -88,10 +93,11 @@ class Fitness:
                     count += 1
             return count
 
-        def reduce_matrix(matrix):
+        def reduce_matrix(matrix, qubits):
             can_normalize = True
             try:
-                q1_matrix = [[matrix[0][0], matrix[0][2]], [matrix[2][0], matrix[2][2]]]
+                index = 2**(qubits-1)
+                q1_matrix = [[matrix[0][0], matrix[0][index]], [matrix[index][0], matrix[index][index]]]
             except IndexError:
                 can_normalize = False
                 return matrix, can_normalize
@@ -100,19 +106,10 @@ class Fitness:
                 if norm == 0:
                     can_normalize = False
                     return q1_matrix, can_normalize
-                q1_matrix[i] = [x / norm for x in q1_matrix[i]]
+                q1_matrix[i] /= norm
             return q1_matrix, can_normalize
 
-
-        qasm_str = individual.to_qasm()
-        with open('tmp_circuit.qasm', 'w') as f:
-            f.write(qasm_str)
-
-        res = subprocess.run(['./mqt-ddsim-simple', '--simulate_unitary', 'tmp_circuit.qasm', '--pu'], capture_output=True)
-        res_str = res.stdout.decode('utf-8')
-
-        matrix = parse_ddsim_output(res_str)
-        reduced_matrix, normalized = reduce_matrix(matrix)
+        reduced_matrix, normalized = reduce_matrix(matrix, individual.qubits)
         # the result matrix cant be unitary
         if not normalized:
             return 100.0
@@ -120,24 +117,26 @@ class Fitness:
         # check if the matrix is unitary
         product = reduced_matrix @ adjoint(reduced_matrix)
         if not np.allclose(product, np.eye(len(product))):
-            logger.log(type='ERROR', message=f'Reduced matrix for {individual}: {reduced_matrix} is not unitary')
             return 50.0
 
-        expected_matrix = (3 * qg.I + 2j * qg.Z) / np.sqrt(13)
-        # expected_matrix' * reduced_matrix should result in e^jphi * I, the absolute value of trace should be 2^n
-        # divide the trace by 2^n to normalize to interval [0, 1]
-        trace = np.trace(expected_matrix @ adjoint(reduced_matrix))
-        #normalized_trace = np.abs(trace) / (2**n)
-        normalized_trace = np.abs(trace)
+        expected_gate = (2 * qg.X + np.sqrt(2) * qg.Y + qg.Z) / np.sqrt(7)
+        #expected_gate = (qg.I + np.sqrt(2) * 1j * qg.X) / np.sqrt(3)
+        #expected_gate = (1 * qg.I + 2j * qg.Z) / np.sqrt(5)
+        #expected_gate = (3 * qg.I + 2j * qg.Z) / np.sqrt(13)
+        #expected_gate = (4 * qg.I + 1j * qg.Z) / np.sqrt(17)
+        #expected_gate = (5 * qg.I + 2j * qg.Z) / np.sqrt(29)
 
-        # check non-diagonal elements of their product, they should be close to 0
-        product = expected_matrix @ adjoint(reduced_matrix)
-        non_diagonal_elements = [product[i][j] for i in range(len(product)) for j in range(len(product)) if i != j]
-        if any(abs(x) > 1e-3 for x in non_diagonal_elements):
-            return 20.0
-
-        n = 1
-        return np.abs(normalized_trace - 2**n)
+        # only 1 non-ancilla qubit -> single qubit unitary
+        matrix_dimension = 2**(1)
+        # https://quantumcomputing.stackexchange.com/questions/27690/what-is-fidelity-in-quantum-computing/27696#27696
+        fidelity = np.abs(1 - ((1/matrix_dimension**2) * np.abs(np.trace(expected_gate @ adjoint(reduced_matrix)))**2))
+        number_of_gates = self.gate_count(individual)
+        number_of_t_gates = self.number_of_t_gates(individual)
+        fitness = 0
+        fitness += 0.00000001 * number_of_gates
+        fitness += 0.000001 * number_of_t_gates
+        fitness += fidelity
+        return fidelity
 
     def sliqsim_fitness(self, individual : Genome, statevectors : list[np.array], logger : Logger):
         def extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, qubits):
@@ -179,34 +178,6 @@ class Fitness:
 
         def euclidean(vec1, vec2):
             return np.linalg.norm(vec1 - vec2)
-    
-        def number_of_t_gates(individual):
-            count = 0
-            for gene in individual.genes:
-                if gene.gate == 't' or gene.gate == 'tdg':
-                    count += 1
-            return count
-
-        def gate_count(individual):
-            i = 0
-            count = 0
-            in_actives = True
-            inactives_end = 0
-            while i < len(individual.genes):
-                gene = individual.genes[i]
-                if i > inactives_end:
-                    in_actives = True
-                    inactives_end = 0
-            
-                if gene.gate == 'SKIP':
-                    in_actives = False
-                    inactives_end = i + gene.skips + 1
-                
-                if in_actives:
-                    count += 1
-                i += 1
-            return count
-            
         
         def find_max_depth(individual):
             return 0
@@ -222,8 +193,8 @@ class Fitness:
         }
         # compute circuit specific metrics
         max_depth = find_max_depth(individual)
-        gate_count = gate_count(individual)
-        t_gate_penalty = number_of_t_gates(individual)
+        gate_count = self.gate_count(individual)
+        t_gate_penalty = self.number_of_t_gates(individual)
         
 
         # (5I + 2jZ) / sqrt(29) -- tmp2.qasm

@@ -1,14 +1,20 @@
 from genome import Genome
 from fitness import Fitness
+import multiprocessing
 import subprocess
 import fcntl
 from logger import Logger
 import numpy as np
 import time
 import os
+import mqt.core
+import mqt.ddsim
+from concurrent.futures import ThreadPoolExecutor
+
+
 
 class MultiThreadedFitnessEvaluator:
-    def __init__(self, fitness_function : Fitness) -> None:
+    def __init__(self, fitness_function : Fitness, logger : Logger) -> None:
         """
             Initialize fitness function evaluator,
             boot up the simulator in persistent mode waiting
@@ -19,11 +25,13 @@ class MultiThreadedFitnessEvaluator:
         if self.simulator_name == 'sliqsim':
             self.simulator = subprocess.Popen(['./SliQSim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         elif self.simulator_name == 'ddsim':
-            self.simulator = subprocess.Popen(['./ddsim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.simulator = ThreadPoolExecutor()
+            #self.simulator = subprocess.Popen(['./ddsim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         self.genome_map = {}
         self.lowest_id = 0
         self.circuits_sent = 0
         self.fittest = None
+        self.logger = logger
 
     def add_genome(self, genome : Genome) -> None:
         """
@@ -56,7 +64,7 @@ class MultiThreadedFitnessEvaluator:
         return self.genome_map[id]
 
     @staticmethod
-    def parse_statevector(self, config : str, basis_state : str) -> np.array:
+    def parse_statevector(config : str, basis_state : str) -> np.array:
         start = '<statevector_' + basis_state + '>'
         end = '</statevector_' + basis_state + '>'
         statevector_start = config.find(start) + len(start)
@@ -70,13 +78,13 @@ class MultiThreadedFitnessEvaluator:
         return np.array(statevector)
 
     @staticmethod
-    def parse_id(self, config : str) -> int:
+    def parse_id(config : str) -> int:
         id_start = config.find('<id>') + len('<id>')
         id_end = config.find('</id>')
         return int(config[id_start:id_end])
 
     @staticmethod
-    def parse_matrix(self, config : str) -> np.array:
+    def parse_matrix(config : str) -> np.array:
         matrix_start = config.find('<matrix>') + len('<matrix>')
         matrix_end = config.find('</matrix>')
         matrix = np.array(config[matrix_start+1:matrix_end-1].split(','))
@@ -97,15 +105,30 @@ class MultiThreadedFitnessEvaluator:
 
         return id, [statevector_0, statevector_1, statevector_plus, statevector_minus]
 
+
+    def parse_ddsim_matrix(self, matrix_str : str) -> np.array:
+        matrix = []
+        for line in matrix_str.split('\n'):
+            if line.startswith('['):
+                elements = [x.strip() for x in line.strip('[]').split(',') if x.strip()]
+                row = []
+                for elem in elements:
+                    try:
+                        row.append(complex(elem))
+                    except ValueError:
+                        row.append(0j)
+                matrix.append(row)
+        return matrix
+
     def parse_ddsim_config(self, config : str) -> tuple[int, np.array]:
         """
             Parse the config from the simulator
             Return the ID, matrix
         """
-        id = self.parse_id(config)
+        id = self.parse_id(config=config)
         matrix_start = config.find('<matrix>') + len('<matrix>')
         matrix_end = config.find('</matrix>')
-        matrix = np.array(config[matrix_start+1:matrix_end-1].split(','))
+        matrix = self.parse_ddsim_matrix(config[matrix_start+1:matrix_end-1])
         return id, matrix
         
     def read_config(self) -> str:
@@ -117,7 +140,7 @@ class MultiThreadedFitnessEvaluator:
             config += line
         return config
 
-    def read_results(self, logger : Logger) -> Genome:
+    def read_results(self) -> Genome:
         """
             Wait until the simulator writes the output configs for all IDs passed into it
             Example config:
@@ -131,7 +154,7 @@ class MultiThreadedFitnessEvaluator:
             config = self.read_config()
             id, statevectors = self.parse_sliqsim_config(config)
             genome = self.get_genome(id)
-            genome.fitness = self.fitness_function.evaluate(genome, statevectors, logger)
+            genome.fitness = self.fitness_function.evaluate(genome, statevectors, self.logger)
             if self.fittest is None or genome.fitness < self.fittest.fitness:
                 self.fittest = genome
             ids_found += 1
@@ -147,7 +170,7 @@ class MultiThreadedFitnessEvaluator:
         self.add_genome(genome)
         return xml
 
-    def read_batch(self, batch : list[Genome], logger : Logger) -> None:
+    def read_batch(self, batch : list[Genome]) -> None:
         received = 0
         fittest = None
         while(received < len(batch)):
@@ -155,37 +178,58 @@ class MultiThreadedFitnessEvaluator:
             if self.simulator_name == 'sliqsim':
                 id, statevectors = self.parse_sliqsim_config(config)
                 genome = self.get_genome(id)
-                genome.fitness = self.fitness_function.evaluate(individual=genome, statevectors=statevectors, logger=logger)
-            elif self.simulator_name == 'ddsim':
-                id, matrix = self.parse_ddsim_config(config)
-                genome = self.get_genome(id)
-                genome.fitness = self.fitness_function.evaluate(individual=genome, matrix=matrix, logger=logger)
+                genome.fitness = self.fitness_function.evaluate(individual=genome, statevectors=statevectors, logger=self.logger)
 
             if fittest is None or genome.fitness < fittest.fitness:
                 fittest = genome
             received += 1
         return fittest
+    
 
-    def evaluate(self, population : "Population", logger : Logger) -> Genome:
+    def worker_work(self, individual : Genome) -> float:
+        qasm, number_of_gates = individual.to_qasm()
+        # empty qasm file causes segfault
+        if number_of_gates == 0:
+            individual.fitness = 1.0
+            return individual.fitness
+
+        qc = mqt.core.QuantumComputation().from_qasm_str(qasm)
+        sim = mqt.ddsim.UnitarySimulator(qc)
+        sim.construct()
+        dd = sim.get_constructed_dd()
+        matrix = np.array(dd.get_matrix(individual.qubits), copy=False)
+        individual.fitness = self.fitness_function.evaluate(individual=individual, matrix=matrix, logger=self.logger)
+        return individual.fitness
+
+    def evaluate(self, population : "Population") -> Genome:
         self.fittest = population.fittest
         time_start = time.time()
         batch_size = os.cpu_count()
         fittest = None
-        for i in range(0, len(population.individuals), batch_size):
-            batch = population.individuals[i:i+batch_size]
-            for genome in batch:
-                conversion_start = time.time()
-                xml = self.genome_to_xml(genome)
-                conversion_end = time.time()
-                logger.log_conversion(conversion_end - conversion_start)
+        if self.simulator_name == 'sliqsim':
+            for i in range(0, len(population.individuals), batch_size):
+                batch = population.individuals[i:i+batch_size]
+                for genome in batch:
+                    conversion_start = time.time()
+                    xml = self.genome_to_xml(genome)
+                    conversion_end = time.time()
+                    self.logger.log_conversion(conversion_end - conversion_start)
 
-                self.write_to_stdin(xml)
-                self.circuits_sent += 1
-            batch_fittest = self.read_batch(batch, logger)
-            if fittest is None or batch_fittest.fitness < fittest.fitness:
-                fittest = batch_fittest
+                    self.write_to_stdin(xml)
+                    self.logger.log(type='INFO', message=f"Sent circuit {self.circuits_sent} to simulator")
+                    self.circuits_sent += 1
+                batch_fittest = self.read_batch(batch)
+                if fittest is None or batch_fittest.fitness < fittest.fitness:
+                    fittest = batch_fittest
+        elif self.simulator_name == 'ddsim':
+            results = self.simulator.map(self.worker_work, population.individuals)
+            for i, result in enumerate(results):
+                self.logger.log(type='DEBUG', message=f"Fitness {result} for individual {population.individuals[i]}")
+                if fittest is None or result < fittest.fitness:
+                    fittest = population.individuals[i]
+
         time_end = time.time()
-        logger.log_fitness_call(time_end - time_start)
+        self.logger.log_fitness_call(time_end - time_start)
 
         self.reset()
         return fittest
