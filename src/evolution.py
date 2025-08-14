@@ -129,9 +129,9 @@ class EvolutionManager:
             else:
                 # mutate parent with better fitness
                 if par1.fitness < par2.fitness:
-                    child = par1.copy()
+                    child = copy.deepcopy(par1)
                 else:
-                    child = par2.copy()
+                    child = copy.deepcopy(par2)
                 child.mutate(logger=self.logger, active_mut_rate=self.active_mut_rate, inactive_mut_rate=self.inactive_mut_rate)
                 new_population.add_individual(child)
 

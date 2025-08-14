@@ -9,6 +9,14 @@ class Gene:
         self.parts = [] # List[int] qubit indices, last is target, rest are controls, size is fix by max_qubits_needed
         self.skips = 0
         self.active = True
+
+    def __deepcopy__(self, memo_dict : dict) -> "Gene":
+        gene = Gene()
+        gene.gate = self.gate
+        gene.parts = self.parts.copy()
+        gene.skips = self.skips
+        gene.active = self.active
+        return gene
         
     def random(self, gate_set : List[Gate], max_qubit : int, max_qubits_needed : int, max_skips : int) -> Gate:
         gate = random.choice(gate_set)
@@ -30,9 +38,6 @@ class Gene:
 
     def __str__(self) -> str:
         return f"{self.gate} {self.parts} {self.skips} {self.active}"
-
-    def copy(self) -> "Gene":
-        return copy.deepcopy(self)
 
     def __hash__(self) -> int:
         hash = 0

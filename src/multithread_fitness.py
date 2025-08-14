@@ -24,8 +24,7 @@ class MultiThreadedFitnessEvaluator:
         if self.simulator_name == 'sliqsim':
             self.simulator = subprocess.Popen(['./SliQSim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         elif self.simulator_name == 'ddsim':
-            print(os.cpu_count())
-            self.simulator = ProcessPoolExecutor(max_workers=os.cpu_count())
+            self.simulator = ProcessPoolExecutor()
             #self.simulator = subprocess.Popen(['./ddsim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         self.genome_map = {}
         self.lowest_id = 0
@@ -226,7 +225,7 @@ class MultiThreadedFitnessEvaluator:
             results = self.simulator.map(self.worker_work, population.individuals)
             for i, result in enumerate(results):
                 population.individuals[i].fitness = result
-                self.logger.log(type='DEBUG', message=f"Fitness {result}, {population.individuals[i].fitness} for individual {population.individuals[i]}")
+                #self.logger.log(type='DEBUG', message=f"Fitness {result}, {population.individuals[i].fitness} for individual {population.individuals[i]}")
                 if fittest is None or result < fittest.fitness:
                     fittest = population.individuals[i]
 

@@ -1,4 +1,6 @@
 import evolution as evo
+import os
+import copy
 
 if __name__ == "__main__":
     gate_set = evo.GateSet(preset='default')

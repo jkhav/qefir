@@ -17,9 +17,12 @@ class Genome:
         self.max_qubits_needed = max_qubits_needed
         self.actives_mutated = 0
         self.first_evaluation = True
-        
-    def copy(self) -> "Genome":
-        return copy.deepcopy(self)
+
+    def __deepcopy__(self, memo_dict : dict) -> "Genome":
+        genome = Genome(gate_set=self.gate_set, qubits=self.qubits, operations=self.operations, max_qubits_needed=self.max_qubits_needed)
+        genome.genes = [copy.deepcopy(gene) for gene in self.genes]
+        return genome
+
     
     def generate_random_individual(self) -> "Genome": 
         for i in range(self.operations):
@@ -96,8 +99,8 @@ class Genome:
                 return
             else:
                 index_to_swap = self.genes.index(gene_to_swap_with)
-                self.genes[index_to_swap] = gene.copy()
-                self.genes[self.genes.index(gene)] = gene_to_swap_with.copy()
+                self.genes[index_to_swap] = copy.deepcopy(gene)
+                self.genes[self.genes.index(gene)] = copy.deepcopy(gene_to_swap_with)
 
 
     def mutate(self, logger : Logger, active_mut_rate : float, inactive_mut_rate : float) -> "Genome":
