@@ -8,7 +8,7 @@ import time
 import os
 import mqt.core
 import mqt.ddsim
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 
 
@@ -24,7 +24,8 @@ class MultiThreadedFitnessEvaluator:
         if self.simulator_name == 'sliqsim':
             self.simulator = subprocess.Popen(['./SliQSim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         elif self.simulator_name == 'ddsim':
-            self.simulator = ThreadPoolExecutor()
+            print(os.cpu_count())
+            self.simulator = ProcessPoolExecutor(max_workers=os.cpu_count())
             #self.simulator = subprocess.Popen(['./ddsim'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         self.genome_map = {}
         self.lowest_id = 0
@@ -184,8 +185,8 @@ class MultiThreadedFitnessEvaluator:
             received += 1
         return fittest
     
-
-    def worker_work(self, individual : Genome) -> float:
+    @staticmethod
+    def worker_work(individual : Genome) -> float:
         qasm, number_of_gates = individual.to_qasm()
         # empty qasm file causes segfault
         if number_of_gates == 0:
@@ -197,7 +198,8 @@ class MultiThreadedFitnessEvaluator:
         sim.construct()
         dd = sim.get_constructed_dd()
         matrix = np.array(dd.get_matrix(individual.qubits), copy=False)
-        individual.fitness = self.fitness_function.evaluate(individual=individual, matrix=matrix, logger=self.logger)
+        fitness_function = Fitness(name='ddsim')
+        individual.fitness = fitness_function.evaluate(individual=individual, matrix=matrix, logger=None)
         return individual.fitness
 
     def evaluate(self, population : "Population") -> Genome:
@@ -223,7 +225,8 @@ class MultiThreadedFitnessEvaluator:
         elif self.simulator_name == 'ddsim':
             results = self.simulator.map(self.worker_work, population.individuals)
             for i, result in enumerate(results):
-                self.logger.log(type='DEBUG', message=f"Fitness {result} for individual {population.individuals[i]}")
+                population.individuals[i].fitness = result
+                self.logger.log(type='DEBUG', message=f"Fitness {result}, {population.individuals[i].fitness} for individual {population.individuals[i]}")
                 if fittest is None or result < fittest.fitness:
                     fittest = population.individuals[i]
 
@@ -234,11 +237,14 @@ class MultiThreadedFitnessEvaluator:
         return fittest
 
     def gracefully_terminate_simulator(self) -> None:
-        xml = '<xml><flag>terminate</flag></xml>'
-        self.write_to_stdin(xml)
-        self.simulator.stdin.flush()
-        self.simulator.terminate()
-        self.simulator.wait()
-        self.simulator.stdout.close()
-        self.simulator.stdin.close()
-        self.simulator.stderr.close()
+        if self.simulator_name == 'sliqsim':
+            xml = '<xml><flag>terminate</flag></xml>'
+            self.write_to_stdin(xml)
+            self.simulator.stdin.flush()
+            self.simulator.terminate()
+            self.simulator.wait()
+            self.simulator.stdout.close()
+            self.simulator.stdin.close()
+            self.simulator.stderr.close()
+        elif self.simulator_name == 'ddsim':
+            self.simulator.shutdown()

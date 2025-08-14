@@ -169,6 +169,7 @@ class EvolutionManager:
             self.increment_population()
             self.population = self.new_population_step()
 
+        self.fitness_evaluator.gracefully_terminate_simulator()
 
         self.logger.log(type='INFO', message=f"Evolution finished after {self.population_count()+1} populations")            
         best_individual = self.fittest
