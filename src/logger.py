@@ -17,6 +17,7 @@ class Logger:
         self.crossover_time = 0.0
         self.selection_time = 0.0
         self.useless_mutations = 0
+        self.copy_time = 0.0
     
     def log(self, type='MISC', message='default message'):
         """
@@ -38,6 +39,9 @@ class Logger:
     def log_mutation(self, time_taken):
         self.mutations += 1
         self.mutations_time += time_taken
+
+    def log_copy(self, time_taken):
+        self.copy_time += time_taken
 
     def log_crossover(self, time_taken):
         self.crossovers += 1
@@ -63,7 +67,8 @@ class Logger:
         self.file.write(f"Total fitness calls: {self.fitness_calls}\n")
         self.file.write(f"Total fitness time: {self.fitness_time:.4f} seconds\n")
         self.file.write(f"Total conversion time: {self.conversion_time:.4f} seconds\n")
-        
+        self.file.write(f"Total copy time: {self.copy_time:.4f} seconds\n")
+
         self.file.write(f"Total mutations: {self.mutations}\n")
         self.file.write(f"Total mutation time: {self.mutations_time:.4f} seconds\n")
 

@@ -120,7 +120,7 @@ class EvolutionManager:
             self.logger.log_selection(selection_end - selection_start)
             if prob < self.crossover_rate:
                 crossover_start = time.time()
-                child = self.crossover.crossover(par1, par2)
+                child = self.crossover.crossover(par1, par2, logger=self.logger)
                 crossover_end = time.time()
                 self.logger.log_crossover(crossover_end - crossover_start)
 
@@ -128,10 +128,14 @@ class EvolutionManager:
                 new_population.add_individual(child)
             else:
                 # mutate parent with better fitness
+                copy_start = time.time()
                 if par1.fitness < par2.fitness:
                     child = copy.deepcopy(par1)
                 else:
                     child = copy.deepcopy(par2)
+                copy_end = time.time()
+                self.logger.log_copy(copy_end - copy_start)
+
                 child.mutate(logger=self.logger, active_mut_rate=self.active_mut_rate, inactive_mut_rate=self.inactive_mut_rate)
                 new_population.add_individual(child)
 

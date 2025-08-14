@@ -1,6 +1,8 @@
 from genome import Genome
 import random
 import copy
+from logger import Logger
+import time
 
 class Crossover:
     """
@@ -20,7 +22,7 @@ class OnePointCrossover(Crossover):
     """
 
     @staticmethod
-    def crossover(parent1: Genome, parent2: Genome) -> Genome:
+    def crossover(parent1: Genome, parent2: Genome, logger : Logger) -> Genome:
         """
             Implementation of one point crossover operation
             The crossover point is chosen randomly
@@ -30,5 +32,8 @@ class OnePointCrossover(Crossover):
         
         genes = parent1.genes[:crossover_point] + parent2.genes[crossover_point:]
         child = Genome(gate_set=parent1.gate_set, max_qubits_needed=parent1.max_qubits_needed, qubits=parent1.qubits, operations=parent1.operations)
+        crossover_start = time.time()
         child.genes = copy.deepcopy(genes)
+        crossover_end = time.time()
+        logger.log_copy(crossover_end - crossover_start)
         return child
