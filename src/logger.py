@@ -2,7 +2,7 @@ import datetime
 import os
 
 class Logger:
-    def __init__(self, filename='logs/evolution'):
+    def __init__(self, filename : str = 'logs/evolution') -> None:
         self.filename = filename + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + '.log'
         self.file = open(self.filename, 'w')
         self.start_time = datetime.datetime.now()
@@ -19,49 +19,80 @@ class Logger:
         self.useless_mutations = 0
         self.copy_time = 0.0
     
-    def log(self, type='MISC', message='default message'):
+    def log(self, type : str = 'MISC', message : str = 'default message') -> None:
         """
             Log a message to the log file with runtime since logger creation
         """
         runtime = datetime.datetime.now() - self.start_time
         self.file.write(f"[{type}] (runtime: {runtime}) {message}\n")
     
-    def close(self):
+    def close(self) -> None:
         self.file.close()
         
-    def log_fitness_call(self, time_taken):
+    def log_fitness_call(self, time_taken : float) -> None:
         """
             Log a fitness function call with time taken
         """
         self.fitness_calls += 1
         self.fitness_time += time_taken
         
-    def log_mutation(self, time_taken):
+    def log_mutation(self, time_taken : float) -> None:
+        """
+            Log a mutation of a single genome with time taken
+        """
         self.mutations += 1
         self.mutations_time += time_taken
 
-    def log_copy(self, time_taken):
+    def log_copy(self, time_taken : float) -> None:
+        """
+            Log a copy operation (mostly of genome or genome's genes) with time taken
+        """
         self.copy_time += time_taken
 
-    def log_crossover(self, time_taken):
+    def log_crossover(self, time_taken : float) -> None:
+        """
+            Log a crossover operation (including copy time) with time taken
+        """
         self.crossovers += 1
         self.crossover_time += time_taken
 
-    def log_selection(self, time_taken):
+    def log_selection(self, time_taken : float) -> None:
+        """
+            Log a selection operation with time taken
+        """
         self.selection_time += time_taken
 
-    def log_simulation(self, time_taken):
+    def log_simulation(self, time_taken : float) -> None:
+        """
+            Log simulation time of SliQSim circuit evaluation
+        """
         self.simulation_time += time_taken
         
-    def log_conversion(self, time_taken):
+    def log_conversion(self, time_taken : float) -> None:
+        """
+            Log a conversion Genome -> QASM format (genotype to phenotype conversion)
+        """
         self.conversion_time += time_taken
         
-    def log_useless_mutation(self):
+    def log_useless_mutation(self) -> None:
+        """
+            Log a mutation that is marked as useless
+            Useless mutation is when: 
+                - changing gate changes to the same gate
+                - qubit indice change changes to the same qubit
+                - qubits swapping does not do any swapping
+                - skips change changes to the same skip number
+        """
         self.useless_mutations += 1
     
-    def print_stats(self):
+    def print_stats(self) -> None:
         """
             Print statistics about the evolution process
+            prints:
+                - fitness time, calls
+                - conversion to qasm time
+                - time of python copy operations
+                - informations about mutations, crossovers, selection
         """
         self.file.write("\n--- Evolution Statistics ---\n")
         self.file.write(f"Total fitness calls: {self.fitness_calls}\n")
@@ -78,7 +109,8 @@ class Logger:
 
         self.file.write(f"Useless mutations: {self.useless_mutations}\n")
         self.file.write(f"\n")
-    def print_final_circuit(self, individual):
+
+    def print_final_circuit(self, individual : "Genome") -> None:
         """
             Print the final circuit to the log file
         """
@@ -87,13 +119,11 @@ class Logger:
         self.file.write(qasm)
         self.file.write(f"\n")
 
-    def move_based_on_final_fitness(self, fitness : float):
+    def move_based_on_final_fitness(self, fitness : float) -> None:
         """
-            If the evolution was just a bit successful, move the log to the good_results/ directory
+            If the evolution was just a bit successful (fitness is below 10^-3), move the log to the good_results/ directory
         """
         if fitness < 1e-3:
             old_name = self.filename # logs/evolutiondatedatedate ---> logs/good_results/evolutiondatedatedate
             new_name = old_name.replace('logs/', 'logs/good_results/')
             os.rename(old_name, new_name)
-        else:
-            return

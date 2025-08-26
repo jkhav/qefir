@@ -1,5 +1,6 @@
 from genome import Genome
 from fitness import Fitness
+from population import Population
 import subprocess
 import fcntl
 from logger import Logger
@@ -201,7 +202,7 @@ class MultiThreadedFitnessEvaluator:
         individual.fitness = fitness_function.evaluate(individual=individual, matrix=matrix, logger=None)
         return individual.fitness
 
-    def evaluate(self, population : "Population") -> Genome:
+    def evaluate(self, population : Population) -> Genome:
         self.fittest = population.fittest
         time_start = time.time()
         batch_size = os.cpu_count()
@@ -225,9 +226,17 @@ class MultiThreadedFitnessEvaluator:
             results = self.simulator.map(self.worker_work, population.individuals)
             for i, result in enumerate(results):
                 population.individuals[i].fitness = result
-                #self.logger.log(type='DEBUG', message=f"Fitness {result}, {population.individuals[i].fitness} for individual {population.individuals[i]}")
+                self.logger.log(type='DEBUG', message=f"Evaluated individual {population.individuals[i]}")
                 if fittest is None or result < fittest.fitness:
                     fittest = population.individuals[i]
+            
+            # multithreaded evaluation does not support prints or logging
+            # use this to debug
+            #for i in range(len(population.individuals)):
+            #    genome = population.individuals[i]
+            #    self.worker_work(genome)
+            #    if fittest is None or genome.fitness < fittest.fitness:
+            #        fittest = genome
 
         time_end = time.time()
         self.logger.log_fitness_call(time_end - time_start)

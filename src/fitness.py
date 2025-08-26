@@ -108,6 +108,72 @@ class Fitness:
                 q1_matrix[i] /= norm
             return q1_matrix, can_normalize
 
+
+        def print_matrix(matrix):
+            # https://stackoverflow.com/questions/17870612/printing-a-two-dimensional-array-in-python
+            rows = len(matrix)
+            cols = len(matrix[0])
+            for i in range(rows):
+                print('\t', end = '')
+                for j in range(cols):
+                    value = matrix[i][j]
+                    if np.iscomplexobj(value):
+                        print(f"{value.real:8.3f}{value.imag:+.3f}j", end=' ')
+                    else:
+                        print(f"{float(value):8.3f}", end=' ')
+                print()
+            print()
+
+        def check_matrix_validity(full_unitary, qubits, logger) -> tuple[bool, float]:
+            # extract fail and success matrices, check if they are proportional to identity
+            success_matrix = [[full_unitary[0][0], full_unitary[0][2**(qubits-1)]], [full_unitary[2**(qubits-1)][0], full_unitary[2**(qubits-1)][2**(qubits-1)]]]
+            fail_matrix = [[full_unitary[1][0], full_unitary[1][2**(qubits-1)]], [full_unitary[2**(qubits)-1][0], full_unitary[2**(qubits)-1][2**(qubits-1)]]]
+
+            res = success_matrix @ adjoint(success_matrix)
+            norm1 = res[0][0]
+            if norm1 == 0:
+                return False, 0
+            res /= norm1
+            if not np.allclose(res, np.eye(len(res))):
+                return False, 0
+
+            res = fail_matrix @ adjoint(fail_matrix)
+            norm2 = res[0][0]
+            if norm2 == 0:
+                return True, 1 # this matrix is valid because it has constant probability of success
+            res /= norm2
+            if not np.allclose(res, np.eye(len(res))):
+                return False, 0
+
+            """
+            print()
+            print(f"|N> Success_p: {norm1} + Fail_p: {norm2} = {norm1 + norm2}")
+            
+            state = np.array([1, 0, 0, 0])
+            res = full_unitary @ state
+            norm1 = np.abs(res[0])**2 + np.abs(res[2])**2
+            norm2 = np.abs(res[1])**2 + np.abs(res[3])**2
+            print(f"|0> Success_p: {norm1} + Fail_p: {norm2} = {norm1 + norm2}")
+
+            state = np.array([0, 0, 1, 0])
+            res = full_unitary @ state
+            norm1 = np.abs(res[0])**2 + np.abs(res[2])**2
+            norm2 = np.abs(res[1])**2 + np.abs(res[3])**2
+            print(f"|1> Success_p: {norm1} + Fail_p: {norm2} = {norm1 + norm2}")
+
+            state = np.array([np.sqrt(2)/2, 0, np.sqrt(2)/2, 0])
+            res = full_unitary @ state
+            norm1 = np.abs(res[0])**2 + np.abs(res[2])**2
+            norm2 = np.abs(res[1])**2 + np.abs(res[3])**2
+            print(f"|+> Success_p: {norm1} + Fail_p: {norm2} = {norm1 + norm2}")
+            print()
+            """
+            return True, norm1
+
+        valid, success_prob = check_matrix_validity(matrix, individual.qubits, logger)
+        if not valid:
+            return 500.0
+
         reduced_matrix, normalized = reduce_matrix(matrix, individual.qubits)
         # the result matrix cant be unitary
         if not normalized:
@@ -118,10 +184,10 @@ class Fitness:
         if not np.allclose(product, np.eye(len(product))):
             return 50.0
 
-        expected_gate = (2 * qg.X + np.sqrt(2) * qg.Y + qg.Z) / np.sqrt(7)
+        #expected_gate = (2 * qg.X + np.sqrt(2) * qg.Y + qg.Z) / np.sqrt(7)
         #expected_gate = (qg.I + np.sqrt(2) * 1j * qg.X) / np.sqrt(3)
         #expected_gate = (1 * qg.I + 2j * qg.Z) / np.sqrt(5)
-        #expected_gate = (3 * qg.I + 2j * qg.Z) / np.sqrt(13)
+        expected_gate = (3 * qg.I + 2j * qg.Z) / np.sqrt(13)
         #expected_gate = (4 * qg.I + 1j * qg.Z) / np.sqrt(17)
         #expected_gate = (5 * qg.I + 2j * qg.Z) / np.sqrt(29)
 
@@ -131,11 +197,13 @@ class Fitness:
         fidelity = np.abs(1 - ((1/matrix_dimension**2) * np.abs(np.trace(expected_gate @ adjoint(reduced_matrix)))**2))
         number_of_gates = self.gate_count(individual)
         number_of_t_gates = self.number_of_t_gates(individual)
+        prob_penalty = 1 - success_prob
         fitness = 0
         fitness += 0.00000001 * number_of_gates
         fitness += 0.000001 * number_of_t_gates
+        fitness += 0.01 * prob_penalty
         fitness += fidelity
-        return fidelity
+        return fitness
 
     def sliqsim_fitness(self, individual : Genome, statevectors : list[np.array], logger : Logger):
         def extract_non_ancilla_qubit_state(statevector, non_ancilla_idx, qubits):
