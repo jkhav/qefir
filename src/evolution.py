@@ -6,7 +6,7 @@ from logger import Logger
 import copy
 import random
 from genome import Genome
-from crossover import OnePointCrossover
+from crossover import OnePointCrossover, UniformCrossover
 from selection import StochasticUniversalSampling, TournamentSelection
 from multithread_fitness import MultiThreadedFitnessEvaluator
 import time
@@ -73,6 +73,8 @@ class EvolutionManager:
         self.population_size = population_size
         if crossover_method == 'OnePointCrossover':
             self.crossover = OnePointCrossover()
+        elif crossover_method == 'UniformCrossover':
+            self.crossover = UniformCrossover()
         # more crossover methods to be added
 
         if selection_method == 'TournamentSelection':
@@ -140,8 +142,9 @@ class EvolutionManager:
                 new_population.add_individual(child)
 
         self.fittest = self.fitness_evaluator.evaluate(population=new_population)
-        print(f"Population {self.curr_population + 1} evaluated. Fittest fitness: {self.fittest.fitness}")
-        self.logger.log(type='INFO', message=f"Population {self.curr_population + 1} evaluated. Fittest fitness: {self.fittest.fitness}")
+        avg_fitness = new_population.average_fitness()
+        print(f"Population {self.curr_population + 1} evaluated. Average fitness: {avg_fitness}. Fittest fitness: {self.fittest.fitness}")
+        self.logger.log(type='INFO', message=f"Population {self.curr_population + 1} evaluated. Average fitness: {avg_fitness}. Fittest fitness: {self.fittest.fitness}")
         self.logger.log(type='DEBUG', message=f"Fittest individual: {self.fittest}")
         
         return new_population

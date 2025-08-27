@@ -239,7 +239,7 @@ class MultiThreadedFitnessEvaluator:
             #        fittest = genome
 
         time_end = time.time()
-        self.logger.log_fitness_call(time_end - time_start)
+        self.logger.log_fitness_calls(time_taken=time_end - time_start, no_calls=len(population.individuals))
 
         self.reset()
         return fittest

@@ -133,7 +133,6 @@ class Fitness:
             norm1 = res[0][0]
             if norm1 == 0:
                 return False, 0
-            res /= norm1
             if not np.allclose(res, np.eye(len(res))):
                 return False, 0
 

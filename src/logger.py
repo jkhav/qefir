@@ -35,6 +35,13 @@ class Logger:
         """
         self.fitness_calls += 1
         self.fitness_time += time_taken
+    
+    def log_fitness_calls(self, time_taken : float, no_calls : int) -> None:
+        """
+            Log multiple fitness function calls at once
+        """
+        self.fitness_calls += no_calls
+        self.fitness_time += time_taken
         
     def log_mutation(self, time_taken : float) -> None:
         """
