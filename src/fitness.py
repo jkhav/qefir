@@ -186,9 +186,9 @@ class Fitness:
         #expected_gate = (2 * qg.X + np.sqrt(2) * qg.Y + qg.Z) / np.sqrt(7)
         #expected_gate = (qg.I + np.sqrt(2) * 1j * qg.X) / np.sqrt(3)
         #expected_gate = (1 * qg.I + 2j * qg.Z) / np.sqrt(5)
-        expected_gate = (3 * qg.I + 2j * qg.Z) / np.sqrt(13)
+        #expected_gate = (3 * qg.I + 2j * qg.Z) / np.sqrt(13)
         #expected_gate = (4 * qg.I + 1j * qg.Z) / np.sqrt(17)
-        #expected_gate = (5 * qg.I + 2j * qg.Z) / np.sqrt(29)
+        expected_gate = (5 * qg.I + 2j * qg.Z) / np.sqrt(29)
 
         # only 1 non-ancilla qubit -> single qubit unitary
         matrix_dimension = 2**(1)

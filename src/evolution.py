@@ -143,9 +143,9 @@ class EvolutionManager:
 
         self.fittest = self.fitness_evaluator.evaluate(population=new_population)
         avg_fitness = new_population.average_fitness()
-        print(f"Population {self.curr_population + 1} evaluated. Average fitness: {avg_fitness}. Fittest fitness: {self.fittest.fitness}")
-        self.logger.log(type='INFO', message=f"Population {self.curr_population + 1} evaluated. Average fitness: {avg_fitness}. Fittest fitness: {self.fittest.fitness}")
-        self.logger.log(type='DEBUG', message=f"Fittest individual: {self.fittest}")
+        #print(f"Population {self.curr_population + 1} evaluated. Fittest fitness: {self.fittest.fitness}")
+        self.logger.log(type='INFO', message=f"Population {self.curr_population + 1} evaluated. Fittest fitness: {self.fittest.fitness}")
+        #self.logger.log(type='DEBUG', message=f"Fittest individual: {self.fittest}")
         
         return new_population
 
@@ -184,6 +184,6 @@ class EvolutionManager:
         self.logger.log(type='DEBUG', message=f"Best individual: {best_individual}")
         self.logger.print_stats()
         self.logger.print_final_circuit(best_individual)
-        self.logger.move_based_on_final_fitness(best_individual.fitness)
+        #self.logger.move_based_on_final_fitness(best_individual.fitness)
         self.logger.close()
         return best_individual

@@ -2,7 +2,7 @@ import datetime
 import os
 
 class Logger:
-    def __init__(self, filename : str = 'logs/evolution') -> None:
+    def __init__(self, filename : str = 'logs/5i_evolution') -> None:
         self.filename = filename + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + '.log'
         self.file = open(self.filename, 'w')
         self.start_time = datetime.datetime.now()

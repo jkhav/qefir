@@ -186,7 +186,7 @@ class MultiThreadedFitnessEvaluator:
         return fittest
     
     @staticmethod
-    def worker_work(individual : Genome) -> float:
+    def worker_ddsim_work(individual : Genome) -> float:
         qasm, number_of_gates = individual.to_qasm()
         # empty qasm file causes segfault
         if number_of_gates == 0:
@@ -217,16 +217,16 @@ class MultiThreadedFitnessEvaluator:
                     self.logger.log_conversion(conversion_end - conversion_start)
 
                     self.write_to_stdin(xml)
-                    self.logger.log(type='INFO', message=f"Sent circuit {self.circuits_sent} to simulator")
+                    #self.logger.log(type='INFO', message=f"Sent circuit {self.circuits_sent} to simulator")
                     self.circuits_sent += 1
                 batch_fittest = self.read_batch(batch)
                 if fittest is None or batch_fittest.fitness < fittest.fitness:
                     fittest = batch_fittest
         elif self.simulator_name == 'ddsim':
-            results = self.simulator.map(self.worker_work, population.individuals)
+            results = self.simulator.map(self.worker_ddsim_work, population.individuals)
             for i, result in enumerate(results):
                 population.individuals[i].fitness = result
-                self.logger.log(type='DEBUG', message=f"Evaluated individual {population.individuals[i]}")
+                #self.logger.log(type='DEBUG', message=f"Evaluated individual {population.individuals[i]}")
                 if fittest is None or result < fittest.fitness:
                     fittest = population.individuals[i]
             
